@@ -34,19 +34,20 @@ Your **full-stack crypto trading platform** has been successfully scaffolded wit
    - authController: Register, login, Clerk webhook
    - cryptoController: CoinGecko integration, caching
    - tradeController: Buy, sell, portfolio management
-   - stripeController: Checkout, webhook handling
+   - razorpayController: Checkout, payment verification
    - emailController: Resend email templates
 
 ✅ API Routes
    - /api/auth/* (8 endpoints)
    - /api/crypto/* (4 endpoints)
    - /api/trade/* (9 endpoints)
-   - /api/stripe/* (3 endpoints)
+   - /api/razorpay/* (3 endpoints)
    - /api/email/* (4 endpoints)
 
 ✅ Integrations
    - CoinGecko API (live crypto data, 5s cache)
-   - Stripe (payment processing)
+   - Razorpay (payment processing with signature verification)
+   - Clerk (optional authentication with webhooks)
    - Resend (email notifications)
    - MongoDB Atlas (cloud database)
 ```

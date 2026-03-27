@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useTradeStore } from '../stores/tradeStore'
 import { useAuthStore } from '../stores/authStore'
-import { Search, TrendingUp, TrendingDown } from 'lucide-react'
+import { Search, TrendingUp, TrendingDown, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import CryptoCard from '../components/CryptoCard'
 import BuyModal from '../components/BuyModal'
+import RazorpayModal from '../components/RazorpayModal'
 
 export default function Dashboard() {
   const { cryptoList, fetchCryptoList, selectedCrypto, setSelectedCrypto, searchCrypto } =
@@ -13,6 +14,7 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('')
   const [buyModal, setBuyModal] = useState(false)
   const [selectedForBuy, setSelectedForBuy] = useState(null)
+  const [razorpayModal, setRazorpayModal] = useState(false)
 
   useEffect(() => {
     fetchCryptoList(50)
@@ -45,7 +47,16 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-dark border border-slate-700 rounded-lg p-6">
           <p className="text-slate-400 text-sm mb-2">Available Balance</p>
-          <p className="text-3xl font-bold text-white">${user?.balance?.toFixed(2) || '0.00'}</p>
+          <div className="flex justify-between items-end">
+            <p className="text-3xl font-bold text-white">${user?.balance?.toFixed(2) || '0.00'}</p>
+            <button
+              onClick={() => setRazorpayModal(true)}
+              className="bg-primary hover:bg-primary/90 text-white p-2 rounded-lg transition-colors flex items-center gap-1"
+              title="Add Funds"
+            >
+              <Plus size={18} />
+            </button>
+          </div>
         </div>
         <div className="bg-dark border border-slate-700 rounded-lg p-6">
           <p className="text-slate-400 text-sm mb-2">Portfolio Value</p>
@@ -99,6 +110,17 @@ export default function Dashboard() {
           }}
         />
       )}
+
+      {/* Razorpay Modal */}
+      <RazorpayModal
+        isOpen={razorpayModal}
+        onClose={() => setRazorpayModal(false)}
+        onSuccess={(data) => {
+          // Refresh user balance
+          fetchCryptoList(50)
+          toast.success(`₹${data.newBalance} added to your account!`)
+        }}
+      />
     </div>
   )
 }
