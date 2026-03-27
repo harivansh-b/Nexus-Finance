@@ -3,11 +3,13 @@ import { useAuthStore } from '../stores/authStore'
 import { useNavigate } from 'react-router-dom'
 import { Settings as SettingsIcon, Bell, Lock, CreditCard } from 'lucide-react'
 import { toast } from 'sonner'
+import RazorpayModal from '../components/RazorpayModal'
 
 export default function Settings() {
   const { user, logout } = useAuthStore()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('general')
+  const [razorpayModalOpen, setRazorpayModalOpen] = useState(false)
 
   const handleLogout = () => {
     logout()
@@ -157,15 +159,18 @@ export default function Settings() {
             <h2 className="text-2xl font-bold text-white mb-6">Billing & Payments</h2>
 
             <div className="bg-slate-800/50 rounded-lg p-6">
-              <p className="text-slate-400 mb-4">Add funds to your account using Stripe</p>
-              <button className="bg-primary hover:bg-primary/90 text-white px-6 py-2 rounded-lg font-semibold transition-colors">
+              <p className="text-slate-400 mb-4">Add funds to your account using Razorpay</p>
+              <button
+                onClick={() => setRazorpayModalOpen(true)}
+                className="bg-primary hover:bg-primary/90 text-white px-6 py-2 rounded-lg font-semibold transition-colors"
+              >
                 Add Funds
               </button>
             </div>
 
             <div>
               <h3 className="text-lg font-semibold text-white mb-4">Payment Methods</h3>
-              <p className="text-slate-400">No payment methods saved yet</p>
+              <p className="text-slate-400">Razorpay accepts all major cards and payment methods</p>
             </div>
           </div>
         )}
@@ -180,6 +185,15 @@ export default function Settings() {
           </button>
         </div>
       </div>
+
+      {/* Razorpay Modal */}
+      <RazorpayModal
+        isOpen={razorpayModalOpen}
+        onClose={() => setRazorpayModalOpen(false)}
+        onSuccess={() => {
+          // Optionally refresh user data here
+        }}
+      />
     </div>
   )
 }

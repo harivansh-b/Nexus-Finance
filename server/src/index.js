@@ -7,7 +7,7 @@ import connectDB from './config/database.js';
 import authRoutes from './routes/auth.js';
 import cryptoRoutes from './routes/crypto.js';
 import tradeRoutes from './routes/trade.js';
-import stripeRoutes from './routes/stripe.js';
+import razorpayRoutes from './routes/razorpay.js';
 import emailRoutes from './routes/email.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
@@ -33,7 +33,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/auth', authRoutes);
 app.use('/api/crypto', cryptoRoutes);
 app.use('/api/trade', tradeRoutes);
-app.use('/api/stripe', stripeRoutes);
+app.use('/api/razorpay', razorpayRoutes);
 app.use('/api/email', emailRoutes);
 
 // Health Check

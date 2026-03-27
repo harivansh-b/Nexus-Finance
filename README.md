@@ -88,9 +88,9 @@ The frontend will run on `http://localhost:5173`
 - `POST /api/trade/watchlist/remove` - Remove coin from watchlist
 
 ### Payments (Protected)
-- `POST /api/stripe/create-checkout-session` - Create Stripe checkout
-- `POST /api/stripe/webhook` - Stripe webhook
-- `GET /api/stripe/payments` - Get payment history
+- `POST /api/razorpay/create-order` - Create Razorpay order
+- `POST /api/razorpay/verify-payment` - Verify payment
+- `GET /api/razorpay/payments` - Get payment history
 
 ### Email
 - `POST /api/email/send-welcome` - Send welcome email
@@ -109,8 +109,8 @@ NODE_ENV=development
 MONGODB_URI=mongodb+srv://...
 JWT_SECRET=your_secret_min_32_chars
 CLERK_SECRET_KEY=your_clerk_secret
-STRIPE_SECRET_KEY=sk_test_...
-STRIPE_WEBHOOK_SECRET=whsec_...
+RAZORPAY_KEY_ID=rzp_test_...
+RAZORPAY_KEY_SECRET=your_key_secret
 RESEND_API_KEY=re_...
 CLIENT_URL=http://localhost:5173
 COINGECKO_API_KEY=optional_for_pro
@@ -120,7 +120,7 @@ COINGECKO_API_KEY=optional_for_pro
 ```
 VITE_API_URL=http://localhost:5000
 VITE_CLERK_PUBLISHABLE_KEY=your_public_key
-VITE_STRIPE_PUBLISHABLE_KEY=pk_test_...
+VITE_RAZORPAY_KEY_ID=rzp_test_...
 ```
 
 ---
@@ -164,27 +164,33 @@ VITE_STRIPE_PUBLISHABLE_KEY=pk_test_...
 
 ---
 
-## Stripe Integration
+## Razorpay Integration
 
-### Setup Webhook
-1. Go to Stripe Dashboard > Webhooks
-2. Add endpoint: `https://yourdomain.com/api/stripe/webhook`
-3. Events: `checkout.session.completed`
-4. Copy webhook secret to `STRIPE_WEBHOOK_SECRET`
+### Setup Razorpay Account
+1. Go to https://razorpay.com
+2. Create an account and verify
+3. Get your **Key ID** and **Key Secret** from Dashboard → Settings → API Keys
+4. Add to `.env`:
+   ```
+   RAZORPAY_KEY_ID=rzp_test_xxx
+   RAZORPAY_KEY_SECRET=your_secret_xxx
+   ```
 
-### Testing Stripe Locally
-```bash
-# Install Stripe CLI
-# https://stripe.com/docs/stripe-cli
-
-# Login
-stripe login
-
-# Forward webhooks locally
-stripe listen --forward-to localhost:5000/api/stripe/webhook
-
-# Use test card: 4242 4242 4242 4242
+### Add to Frontend
+Add your Key ID to `client/.env`:
 ```
+VITE_RAZORPAY_KEY_ID=rzp_test_xxx
+```
+
+### Testing Razorpay Locally
+- Use test mode credentials (start with `rzp_test_`)
+- Test cards in Razorpay Dashboard → Settings → Test Mode
+- All payments in test mode are simulated
+
+### Production Deployment
+1. Get live credentials (start with `rzp_live_`)
+2. Update `.env` with live keys
+3. Razorpay automatically handles webhooks
 
 ---
 
