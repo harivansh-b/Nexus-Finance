@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { ClerkProvider } from '@clerk/clerk-react'
 import { useAuthStore } from './stores/authStore'
 import { Toaster } from 'sonner'
 
@@ -15,6 +16,8 @@ import Settings from './pages/Settings'
 // Components
 import ProtectedRoute from './components/ProtectedRoute'
 
+const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
+
 export default function App() {
   const { initAuth } = useAuthStore()
 
@@ -23,7 +26,7 @@ export default function App() {
   }, [])
 
   return (
-    <>
+    <ClerkProvider publishableKey={clerkPubKey}>
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Landing />} />
@@ -43,6 +46,6 @@ export default function App() {
         </Routes>
       </BrowserRouter>
       <Toaster position="top-right" />
-    </>
+    </ClerkProvider>
   )
 }
