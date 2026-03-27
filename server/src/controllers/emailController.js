@@ -4,6 +4,7 @@ import { AppError } from '../middleware/errorHandler.js';
 import User from '../models/User.js';
 
 let resendInstance = null;
+const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
 
 const getResendClient = () => {
   if (resendInstance) return resendInstance;
@@ -29,7 +30,7 @@ export const sendWelcomeEmail = async (req, res, next) => {
     }
 
     await resend.emails.send({
-      from: 'welcome@nexus-finance.com',
+      from: RESEND_FROM_EMAIL,
       to: email,
       subject: 'Welcome to Nexus Finance!',
       html: `
@@ -71,7 +72,7 @@ export const sendTransactionEmail = async (req, res, next) => {
     const subject = `${type === 'BUY' ? 'Buy' : 'Sell'} Confirmation - ${coin?.symbol}`;
 
     await resend.emails.send({
-      from: 'trades@nexus-finance.com',
+      from: RESEND_FROM_EMAIL,
       to: user.email,
       subject,
       html: `
@@ -124,7 +125,7 @@ export const sendPaymentConfirmation = async (req, res, next) => {
     }
 
     await resend.emails.send({
-      from: 'payments@nexus-finance.com',
+      from: RESEND_FROM_EMAIL,
       to: user.email,
       subject: `Payment Confirmed - $${amount}`,
       html: `
@@ -156,7 +157,7 @@ export const sendLoginAlert = async (req, res, next) => {
     }
 
     await resend.emails.send({
-      from: 'security@nexus-finance.com',
+      from: RESEND_FROM_EMAIL,
       to: email,
       subject: 'Login Alert - New Device Access',
       html: `

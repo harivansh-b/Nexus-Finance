@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { ClerkProvider, useAuth, useUser } from '@clerk/clerk-react'
+import { useAuth, useUser } from '@clerk/clerk-react'
 import { useAuthStore } from './stores/authStore'
 import { Toaster } from 'sonner'
 
@@ -8,13 +8,13 @@ import Landing from './pages/Landing'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
+import CoinDetails from './pages/CoinDetails'
 import Portfolio from './pages/Portfolio'
 import Transactions from './pages/Transactions'
+import WatchlistPage from './pages/WatchlistPage'
 import Settings from './pages/Settings'
 
 import ProtectedRoute from './components/ProtectedRoute'
-
-const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
 
 function ClerkAuthSync() {
   const { isLoaded, isSignedIn } = useAuth()
@@ -72,7 +72,7 @@ export default function App() {
   }, [initAuth])
 
   return (
-    <ClerkProvider publishableKey={clerkPubKey}>
+    <>
       <BrowserRouter>
         <ClerkAuthSync />
         <Routes>
@@ -82,7 +82,9 @@ export default function App() {
 
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/coin/:coingeckoId" element={<CoinDetails />} />
             <Route path="/portfolio" element={<Portfolio />} />
+            <Route path="/watchlist" element={<WatchlistPage />} />
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/settings" element={<Settings />} />
           </Route>
@@ -91,6 +93,6 @@ export default function App() {
         </Routes>
       </BrowserRouter>
       <Toaster position="top-right" />
-    </ClerkProvider>
+    </>
   )
 }

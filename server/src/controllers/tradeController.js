@@ -8,17 +8,82 @@ import { AppError } from '../middleware/errorHandler.js';
 import axios from 'axios';
 
 const COINGECKO_BASE_URL = 'https://api.coingecko.com/api/v3';
+const priceCache = new Map();
+const PRICE_CACHE_DURATION = 60 * 1000;
 
-// Get current crypto price
-const getCryptoPrice = async (coingeckoId) => {
-  try {
-    const response = await axios.get(
-      `${COINGECKO_BASE_URL}/simple/price?ids=${coingeckoId}&vs_currencies=usd`
-    );
-    return response.data[coingeckoId]?.usd;
-  } catch (error) {
-    throw new AppError('Failed to fetch current price', 500);
+const getCachedPrice = (coingeckoId) => {
+  const cached = priceCache.get(coingeckoId);
+  if (!cached) return null;
+
+  if (Date.now() - cached.timestamp > PRICE_CACHE_DURATION) {
+    return null;
   }
+
+  return cached.price;
+};
+
+const setCachedPrice = (coingeckoId, price) => {
+  if (typeof price === 'number' && Number.isFinite(price) && price > 0) {
+    priceCache.set(coingeckoId, { price, timestamp: Date.now() });
+  }
+};
+
+const fetchPriceFromSimpleEndpoint = async (coingeckoId) => {
+  const response = await axios.get(`${COINGECKO_BASE_URL}/simple/price`, {
+    params: {
+      ids: coingeckoId,
+      vs_currencies: 'usd',
+    },
+    timeout: 12000,
+  });
+
+  return response.data?.[coingeckoId]?.usd || null;
+};
+
+const fetchPriceFromCoinDetails = async (coingeckoId) => {
+  const response = await axios.get(`${COINGECKO_BASE_URL}/coins/${coingeckoId}`, {
+    params: {
+      localization: false,
+      tickers: false,
+      market_data: true,
+      community_data: false,
+      developer_data: false,
+    },
+    timeout: 12000,
+  });
+
+  return response.data?.market_data?.current_price?.usd || null;
+};
+
+const getCryptoPrice = async (coingeckoId, fallbackPrice = null) => {
+  const cached = getCachedPrice(coingeckoId);
+  if (cached) {
+    return cached;
+  }
+
+  try {
+    let price = await fetchPriceFromSimpleEndpoint(coingeckoId);
+
+    if (!price) {
+      price = await fetchPriceFromCoinDetails(coingeckoId);
+    }
+
+    if (typeof price === 'number' && Number.isFinite(price) && price > 0) {
+      setCachedPrice(coingeckoId, price);
+      return price;
+    }
+  } catch (error) {
+    const stalePrice = priceCache.get(coingeckoId)?.price;
+    if (stalePrice) {
+      return stalePrice;
+    }
+  }
+
+  if (typeof fallbackPrice === 'number' && Number.isFinite(fallbackPrice) && fallbackPrice > 0) {
+    return fallbackPrice;
+  }
+
+  throw new AppError(`Failed to fetch current price for ${coingeckoId}`, 500);
 };
 
 // Buy Crypto
@@ -31,7 +96,6 @@ export const buyCrypto = async (req, res, next) => {
       throw new AppError('Invalid purchase parameters', 400);
     }
 
-    // Get current price
     const currentPrice = await getCryptoPrice(coingeckoId);
     if (!currentPrice) {
       throw new AppError('Failed to fetch crypto price', 400);
@@ -39,7 +103,6 @@ export const buyCrypto = async (req, res, next) => {
 
     const totalCost = amount * currentPrice;
 
-    // Get user and check balance
     const user = await User.findById(userId);
     if (!user) {
       throw new AppError('User not found', 404);
@@ -49,12 +112,10 @@ export const buyCrypto = async (req, res, next) => {
       throw new AppError('Insufficient balance', 400);
     }
 
-    // Update balance
     const balanceBefore = user.balance;
     user.balance -= totalCost;
     await user.save();
 
-    // Update or create portfolio entry
     let portfolio = await Portfolio.findOne({
       userId,
       'coin.coingeckoId': coingeckoId,
@@ -83,7 +144,6 @@ export const buyCrypto = async (req, res, next) => {
     portfolio.lastBuyAt = new Date();
     await portfolio.save();
 
-    // Record transaction
     const transaction = new Transaction({
       userId,
       type: 'BUY',
@@ -127,7 +187,6 @@ export const sellCrypto = async (req, res, next) => {
       throw new AppError('Invalid sell parameters', 400);
     }
 
-    // Get portfolio
     const portfolio = await Portfolio.findOne({
       userId,
       'coin.coingeckoId': coingeckoId,
@@ -141,21 +200,22 @@ export const sellCrypto = async (req, res, next) => {
       throw new AppError('Insufficient crypto balance', 400);
     }
 
-    // Get current price
-    const currentPrice = await getCryptoPrice(coingeckoId);
+    const currentPrice = await getCryptoPrice(
+      coingeckoId,
+      portfolio.lastBuyPrice || portfolio.avgBuyPrice
+    );
+
     if (!currentPrice) {
       throw new AppError('Failed to fetch crypto price', 400);
     }
 
     const totalEarnings = amount * currentPrice;
 
-    // Update user balance
     const user = await User.findById(userId);
     const balanceBefore = user.balance;
     user.balance += totalEarnings;
     await user.save();
 
-    // Update portfolio
     portfolio.amount -= amount;
     if (portfolio.amount === 0) {
       await Portfolio.deleteOne({ _id: portfolio._id });
@@ -163,7 +223,6 @@ export const sellCrypto = async (req, res, next) => {
       await portfolio.save();
     }
 
-    // Record transaction
     const transaction = new Transaction({
       userId,
       type: 'SELL',
@@ -209,12 +268,14 @@ export const getPortfolioSummary = async (req, res, next) => {
     const userId = req.user.userId;
     const portfolio = await Portfolio.find({ userId });
 
-    // Calculate total value
     let totalValue = 0;
     let totalInvested = 0;
 
     for (const item of portfolio) {
-      const currentPrice = await getCryptoPrice(item.coin.coingeckoId);
+      const currentPrice = await getCryptoPrice(
+        item.coin.coingeckoId,
+        item.lastBuyPrice || item.avgBuyPrice
+      );
       const itemValue = item.amount * currentPrice;
       totalValue += itemValue;
       totalInvested += item.totalInvested;
@@ -378,7 +439,6 @@ export const getOrders = async (req, res, next) => {
 // Create Order (Advanced - placeholder)
 export const createOrder = async (req, res, next) => {
   try {
-    // Placeholder for advanced order functionality
     throw new AppError('Advanced orders coming soon', 501);
   } catch (error) {
     next(error);
@@ -413,7 +473,6 @@ export const addFunds = async (req, res, next) => {
     user.balance += amount;
     await user.save();
 
-    // Record transaction
     const transaction = new Transaction({
       userId,
       type: 'DEPOSIT',

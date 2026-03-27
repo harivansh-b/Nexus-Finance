@@ -4,8 +4,34 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
 const apiClient = axios.create({
   baseURL: `${API_URL}/api`,
-  timeout: 10000,
+  timeout: 20000,
 })
+
+const normalizeError = (payload, fallbackMessage = 'Request failed') => {
+  if (!payload) {
+    return { message: fallbackMessage }
+  }
+
+  if (typeof payload === 'string') {
+    return { message: payload }
+  }
+
+  if (payload.error?.message) {
+    return {
+      ...payload,
+      message: payload.error.message,
+    }
+  }
+
+  if (payload.message) {
+    return payload
+  }
+
+  return {
+    ...payload,
+    message: fallbackMessage,
+  }
+}
 
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('authToken')
@@ -24,7 +50,9 @@ apiClient.interceptors.response.use(
       window.location.href = '/login'
     }
 
-    return Promise.reject(error.response?.data || { message: error.message || 'Request failed' })
+    return Promise.reject(
+      normalizeError(error.response?.data, error.message || 'Request failed')
+    )
   }
 )
 

@@ -1,108 +1,181 @@
 import { useEffect } from 'react'
 import { useTradeStore } from '../stores/tradeStore'
-import { ArrowUpRight, ArrowDownLeft, TrendingUp, TrendingDown } from 'lucide-react'
+import { ArrowUpRight, ArrowDownLeft, History, Search, Filter, Download } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.05 }
+  }
+}
+
+const itemVariants = {
+  hidden: { y: 10, opacity: 0 },
+  visible: { y: 0, opacity: 1 }
+}
 
 export default function Transactions() {
   const { transactions, fetchTransactions } = useTradeStore()
 
   useEffect(() => {
     fetchTransactions(50)
-  }, [])
+  }, [fetchTransactions])
 
   const getTransactionIcon = (type) => {
     if (type === 'BUY' || type === 'DEPOSIT') {
-      return <ArrowDownLeft className="text-success" size={20} />
+      return (
+        <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500">
+           <ArrowDownLeft size={20} />
+        </div>
+      )
     }
-    return <ArrowUpRight className="text-danger" size={20} />
+    return (
+      <div className="p-2 rounded-xl bg-rose-500/10 text-rose-500">
+         <ArrowUpRight size={20} />
+      </div>
+    )
   }
 
   const getTransactionColor = (type) => {
     if (type === 'BUY' || type === 'DEPOSIT') {
-      return 'text-success'
+      return 'text-emerald-400'
     }
-    return 'text-danger'
+    return 'text-rose-400'
   }
 
   return (
-    <div>
+    <motion.div 
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+      className="space-y-10 pb-20"
+    >
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold text-white mb-2">Transactions</h1>
-        <p className="text-slate-400">View your trading history</p>
-      </div>
+      <motion.div variants={itemVariants} className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-black uppercase tracking-widest mb-4">
+            <History size={14} />
+            Ledger Operations
+          </div>
+          <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight mb-2">Transaction Logs</h1>
+          <p className="text-slate-400 font-medium">Verified history of your capital movements.</p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button className="p-4 bg-slate-900/50 border border-white/5 rounded-2xl text-slate-400 hover:text-white transition-all">
+             <Download size={20} />
+          </button>
+          <div className="relative group">
+             <Filter className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-primary transition-colors" size={18} />
+             <select className="bg-slate-900/50 border border-white/5 rounded-2xl pl-12 pr-6 py-4 text-xs font-bold text-white uppercase tracking-widest focus:ring-1 focus:ring-primary outline-none appearance-none cursor-pointer">
+                <option>All Activities</option>
+                <option>Trades Only</option>
+                <option>Wallet Syncs</option>
+             </select>
+          </div>
+        </div>
+      </motion.div>
 
       {/* Transactions List */}
-      <div className="bg-dark border border-slate-700 rounded-lg overflow-hidden">
-        <div className="p-6 border-b border-slate-700">
-          <h2 className="text-xl font-bold text-white">Transaction History</h2>
+      <motion.div variants={itemVariants} className="relative overflow-hidden rounded-[40px] border border-white/5 bg-slate-900/40 shadow-2xl backdrop-blur-xl">
+        <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none" />
+        
+        <div className="relative p-8 border-b border-white/5 flex items-center justify-between bg-slate-900/20">
+          <h2 className="text-xl font-black text-white tracking-tight uppercase">Operational History</h2>
+          <div className="flex items-center gap-2">
+             <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Secure Feed</span>
+          </div>
         </div>
 
         {transactions.length > 0 ? (
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-slate-800/50 border-b border-slate-700">
-                <tr>
-                  <th className="text-left p-4 text-slate-400 text-sm font-semibold">Type</th>
-                  <th className="text-left p-4 text-slate-400 text-sm font-semibold">Cryptocurrency</th>
-                  <th className="text-right p-4 text-slate-400 text-sm font-semibold">Amount</th>
-                  <th className="text-right p-4 text-slate-400 text-sm font-semibold">Price</th>
-                  <th className="text-right p-4 text-slate-400 text-sm font-semibold">Total Value</th>
-                  <th className="text-left p-4 text-slate-400 text-sm font-semibold">Date</th>
-                  <th className="text-left p-4 text-slate-400 text-sm font-semibold">Status</th>
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-white/5 text-[10px] font-black uppercase tracking-[0.25em] text-slate-500">
+                  <th className="text-left p-6">Operation</th>
+                  <th className="text-left p-6">Asset Intelligence</th>
+                  <th className="text-right p-6">Quantity</th>
+                  <th className="text-right p-6">Strike Price</th>
+                  <th className="text-right p-6">Gross Value</th>
+                  <th className="text-left p-6">Timestamp</th>
+                  <th className="text-left p-6">Authorization</th>
                 </tr>
               </thead>
-              <tbody>
-                {transactions.map((tx) => (
-                  <tr key={tx._id} className="border-b border-slate-700 hover:bg-slate-800/30">
-                    <td className="p-4">
-                      <div className="flex items-center gap-3">
-                        {getTransactionIcon(tx.type)}
-                        <span className={`font-semibold ${getTransactionColor(tx.type)}`}>
-                          {tx.type}
+              <tbody className="divide-y divide-white/5">
+                <AnimatePresence mode="popLayout">
+                  {transactions.map((tx) => (
+                    <motion.tr 
+                      key={tx._id} 
+                      layout
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="group hover:bg-white/5 transition-all duration-300"
+                    >
+                      <td className="p-6">
+                        <div className="flex items-center gap-4">
+                          {getTransactionIcon(tx.type)}
+                          <span className={`text-xs font-black tracking-widest ${getTransactionColor(tx.type)}`}>
+                            {tx.type}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="p-6">
+                        <div className="flex items-center gap-3">
+                           <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center font-black text-[10px] text-white">
+                              {tx.coin?.symbol?.charAt(0) || 'U'}
+                           </div>
+                           <div>
+                              <p className="text-sm font-black text-white tracking-tight">{tx.coin?.name || 'USD Balance'}</p>
+                              <p className="text-[10px] font-bold text-slate-500 uppercase">{tx.coin?.symbol || 'USD'}</p>
+                           </div>
+                        </div>
+                      </td>
+                      <td className="p-6 text-right font-bold text-white text-sm">
+                        {tx.amount?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 }) || '—'}
+                      </td>
+                      <td className="p-6 text-right font-bold text-white text-sm">
+                        {tx.price ? `$${tx.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '—'}
+                      </td>
+                      <td className="p-6 text-right font-black text-white text-sm">
+                        ${tx.totalValue?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || '—'}
+                      </td>
+                      <td className="p-6">
+                        <p className="text-xs font-bold text-slate-400">
+                          {new Date(tx.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </p>
+                        <p className="text-[10px] font-medium text-slate-600">
+                          {new Date(tx.createdAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </td>
+                      <td className="p-6">
+                        <span className={`inline-flex items-center px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${
+                          tx.status === 'COMPLETED'
+                            ? 'bg-emerald-500/10 text-emerald-500'
+                            : tx.status === 'PENDING'
+                            ? 'bg-amber-500/10 text-amber-500'
+                            : 'bg-rose-500/10 text-rose-500'
+                        }`}>
+                          {tx.status}
                         </span>
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <div>
-                        <p className="text-white font-semibold">{tx.coin?.name || 'USD'}</p>
-                        <p className="text-sm text-slate-400">{tx.coin?.symbol || 'USD'}</p>
-                      </div>
-                    </td>
-                    <td className="p-4 text-right text-white">
-                      {tx.amount?.toFixed(8) || '—'}
-                    </td>
-                    <td className="p-4 text-right text-white">
-                      ${tx.price?.toFixed(2) || '—'}
-                    </td>
-                    <td className="p-4 text-right text-white">
-                      ${tx.totalValue?.toFixed(2) || '—'}
-                    </td>
-                    <td className="p-4 text-slate-400 text-sm">
-                      {new Date(tx.createdAt).toLocaleDateString()}{' '}
-                      {new Date(tx.createdAt).toLocaleTimeString()}
-                    </td>
-                    <td className="p-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        tx.status === 'COMPLETED'
-                          ? 'bg-success/20 text-success'
-                          : tx.status === 'PENDING'
-                          ? 'bg-warning/20 text-warning'
-                          : 'bg-danger/20 text-danger'
-                      }`}>
-                        {tx.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </motion.tr>
+                  ))}
+                </AnimatePresence>
               </tbody>
             </table>
           </div>
         ) : (
-          <div className="p-12 text-center">
-            <p className="text-slate-400">No transactions yet</p>
+          <div className="py-32 text-center space-y-4">
+             <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mx-auto text-slate-700">
+                <History size={32} />
+             </div>
+             <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">No activity detected</p>
           </div>
         )}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }

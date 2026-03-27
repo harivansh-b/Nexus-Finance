@@ -1,3 +1,12 @@
+// Format compact number (trillions, billions, etc)
+export const formatCompactNumber = (value) => {
+  if (value === undefined || value === null) return '0'
+  return new Intl.NumberFormat('en-US', {
+    notation: 'compact',
+    maximumFractionDigits: 2,
+  }).format(value)
+}
+
 // Format currency
 export const formatCurrency = (value, decimals = 2) => {
   return new Intl.NumberFormat('en-US', {

@@ -1,24 +1,43 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTradeStore } from '../stores/tradeStore'
 import { useAuthStore } from '../stores/authStore'
-import { X, Loader } from 'lucide-react'
+import { X, Loader, Info, ArrowDown, Wallet, Zap, ShoppingCart } from 'lucide-react'
 import { toast } from 'sonner'
+import { formatCurrency, formatCryptoAmount } from '../utils/formatting'
 
 export default function BuyModal({ crypto, onClose }) {
   const [amount, setAmount] = useState('')
   const [usdAmount, setUsdAmount] = useState('0.00')
   const { buyCrypto, isLoading } = useTradeStore()
   const { user } = useAuthStore()
+  const currentPrice = Number(crypto?.currentPrice) || 0
+  const hasValidPrice = currentPrice > 0
 
-  const handleAmountChange = (e) => {
-    const value = e.target.value
-    setAmount(value)
-    if (value && !isNaN(value)) {
-      const usd = (parseFloat(value) * crypto.currentPrice).toFixed(2)
+  const FEE_PERCENTAGE = 0.001 // 0.1% fee
+  const estimatedFee = parseFloat(usdAmount) * FEE_PERCENTAGE
+  const totalWithFee = parseFloat(usdAmount) + estimatedFee
+
+  useEffect(() => {
+    if (amount && !isNaN(amount) && hasValidPrice) {
+      const usd = (parseFloat(amount) * currentPrice).toFixed(2)
       setUsdAmount(usd)
     } else {
       setUsdAmount('0.00')
     }
+  }, [amount, currentPrice, hasValidPrice])
+
+  const handleAmountChange = (e) => {
+    const value = e.target.value
+    if (value === '' || (/^\d*\.?\d*$/.test(value) && parseFloat(value) >= 0)) {
+      setAmount(value)
+    }
+  }
+
+  const setPercentage = (percent) => {
+    if (!user?.balance || !hasValidPrice) return
+    const targetUsd = user.balance * (percent / 100)
+    const cryptoAmount = (targetUsd / currentPrice).toFixed(8)
+    setAmount(cryptoAmount)
   }
 
   const handleBuy = async () => {
@@ -27,9 +46,12 @@ export default function BuyModal({ crypto, onClose }) {
       return
     }
 
-    const totalCost = parseFloat(amount) * crypto.currentPrice
+    if (!hasValidPrice) {
+      toast.error('Live price is not available right now. Please try again.')
+      return
+    }
 
-    if (totalCost > user.balance) {
+    if (totalWithFee > user.balance) {
       toast.error('Insufficient balance')
       return
     }
@@ -44,92 +66,135 @@ export default function BuyModal({ crypto, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-dark border border-slate-700 rounded-lg max-w-md w-full p-8">
+    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center z-50 p-4">
+      <div className="bg-slate-900 border border-white/10 rounded-[32px] max-w-md w-full overflow-hidden shadow-2xl">
         {/* Header */}
-        <div className="flex items-start justify-between mb-6">
-          <div className="flex items-center gap-3">
+        <div className="relative p-6 pb-0">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
+              <Zap className="text-primary" size={20} />
+              Quick Buy
+            </h2>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-xl bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-all"
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          <div className="flex items-center gap-4 p-4 rounded-3xl bg-white/5 border border-white/5">
             {crypto.image && (
-              <img src={crypto.image} alt={crypto.name} className="w-10 h-10 rounded-full" />
+              <img src={crypto.image} alt={crypto.name} className="w-12 h-12 rounded-2xl shadow-lg" />
             )}
             <div>
-              <h2 className="text-xl font-bold text-white">{crypto.name}</h2>
-              <p className="text-sm text-slate-400">${crypto.currentPrice?.toFixed(2)}</p>
+              <h3 className="font-bold text-white">{crypto.name}</h3>
+              <p className="text-sm font-black text-primary">
+                {hasValidPrice ? formatCurrency(currentPrice) : 'Price unavailable'}
+              </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-white transition-colors"
-          >
-            <X size={24} />
-          </button>
         </div>
 
         {/* Form */}
-        <div className="space-y-6">
-          {/* Amount Input */}
-          <div>
-            <label className="block text-sm font-semibold text-white mb-2">
-              Amount ({crypto.symbol})
-            </label>
-            <input
-              type="number"
-              value={amount}
-              onChange={handleAmountChange}
-              placeholder="0.00"
-              step="0.00000001"
-              min="0"
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-primary transition-colors"
-            />
-          </div>
-
-          {/* USD Value */}
-          <div>
-            <label className="block text-sm font-semibold text-white mb-2">USD Value</label>
-            <input
-              type="text"
-              value={`$${usdAmount}`}
-              disabled
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-slate-400 cursor-not-allowed"
-            />
-          </div>
-
-          {/* Summary */}
-          <div className="bg-slate-800/50 rounded-lg p-4 space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-400">Your Balance</span>
-              <span className="text-white font-semibold">${user?.balance?.toFixed(2)}</span>
+        <div className="p-6 space-y-6">
+          <div className="space-y-4">
+            <div className="relative">
+              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">
+                Amount to Spend (USD)
+              </label>
+              <div className="relative group">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">
+                  <Wallet size={18} />
+                </div>
+                <input
+                  type="number"
+                  value={usdAmount}
+                  onChange={(e) => {
+                    const usd = e.target.value
+                    setUsdAmount(usd)
+                    if (usd && !isNaN(usd) && hasValidPrice) {
+                       setAmount((parseFloat(usd) / currentPrice).toFixed(8))
+                    } else {
+                       setAmount('')
+                    }
+                  }}
+                  placeholder="0.00"
+                  className="w-full bg-white/5 border border-white/5 rounded-2xl pl-11 pr-4 py-4 text-white font-black placeholder-slate-600 focus:outline-none focus:border-primary/50 transition-all"
+                />
+              </div>
             </div>
-            <div className="flex justify-between text-sm border-t border-slate-700 pt-2">
-              <span className="text-slate-400">After Purchase</span>
-              <span className={`font-semibold ${parseFloat(usdAmount) > user?.balance ? 'text-danger' : 'text-success'}`}>
-                ${Math.max(0, user?.balance - parseFloat(usdAmount)).toFixed(2)}
-              </span>
+
+            <div className="flex justify-center -my-3 relative z-10">
+              <div className="bg-slate-900 p-2 rounded-xl border border-white/10 text-primary">
+                <ArrowDown size={16} />
+              </div>
+            </div>
+
+            <div className="relative">
+              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">
+                You will receive ({crypto.symbol})
+              </label>
+              <input
+                type="number"
+                value={amount}
+                onChange={handleAmountChange}
+                placeholder="0.00"
+                className="w-full bg-white/5 border border-white/5 rounded-2xl px-4 py-4 text-white font-black placeholder-slate-600 focus:outline-none focus:border-primary/50 transition-all"
+              />
+              <div className="flex gap-2 mt-3">
+                {[25, 50, 75, 100].map((percent) => (
+                  <button
+                    key={percent}
+                    onClick={() => setPercentage(percent)}
+                    className="flex-1 py-1.5 rounded-lg bg-white/5 text-[10px] font-black text-slate-400 hover:bg-primary/20 hover:text-primary transition-all border border-white/5"
+                  >
+                    {percent}%
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
-          {/* Error Message */}
-          {parseFloat(usdAmount) > user?.balance && (
-            <div className="bg-danger/10 border border-danger/30 rounded-lg p-3">
-              <p className="text-sm text-danger">Insufficient balance</p>
+          <div className="space-y-3 p-4 rounded-3xl bg-white/5 border border-white/5">
+             <div className="flex justify-between text-xs font-bold">
+                <span className="text-slate-500 uppercase tracking-wider">Available Balance</span>
+                <span className="text-white">{formatCurrency(user?.balance || 0)}</span>
+             </div>
+             <div className="flex justify-between text-xs font-bold">
+                <span className="text-slate-500 uppercase tracking-wider">Transaction Fee (0.1%)</span>
+                <span className="text-white">{formatCurrency(estimatedFee)}</span>
+             </div>
+             <div className="h-px bg-white/5" />
+             <div className="flex justify-between text-sm font-black">
+                <span className="text-slate-400 uppercase tracking-wider">Total Cost</span>
+                <span className={totalWithFee > user?.balance ? 'text-rose-500' : 'text-emerald-500'}>
+                  {formatCurrency(totalWithFee)}
+                </span>
+             </div>
+          </div>
+
+          {totalWithFee > user?.balance && (
+            <div className="flex items-center gap-2 p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400">
+               <Info size={16} />
+               <p className="text-[10px] font-bold uppercase tracking-wider">Insufficient balance</p>
             </div>
           )}
 
-          {/* Buttons */}
-          <div className="space-y-3">
-            <button
-              onClick={handleBuy}
-              disabled={isLoading || !amount || parseFloat(usdAmount) > user?.balance}
-              className="w-full bg-primary hover:bg-primary/90 disabled:bg-primary/50 text-white py-2 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
-            >
-              {isLoading && <Loader size={18} className="animate-spin" />}
-              {isLoading ? 'Processing...' : 'Buy Now'}
-            </button>
+          <div className="flex gap-3">
             <button
               onClick={onClose}
-              className="w-full bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg font-semibold transition-colors"
+              className="flex-1 py-4 rounded-2xl bg-white/5 text-slate-400 font-black text-sm tracking-widest hover:bg-white/10 transition-all border border-white/5"
             >
-              Cancel
+              CANCEL
+            </button>
+            <button
+              onClick={handleBuy}
+              disabled={isLoading || !amount || !hasValidPrice || totalWithFee > user?.balance}
+              className="flex-[2] py-4 rounded-2xl bg-primary text-white font-black text-sm tracking-widest hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
+            >
+              {isLoading ? <Loader size={18} className="animate-spin" /> : <ShoppingCart size={18} />}
+              {isLoading ? 'PROCESSING...' : 'CONFIRM BUY'}
             </button>
           </div>
         </div>
