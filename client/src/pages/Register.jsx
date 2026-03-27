@@ -1,0 +1,135 @@
+import { useState } from 'react'
+import { useNavigate, Link } from 'react-router-dom'
+import { useAuthStore } from '../stores/authStore'
+import { Mail, Lock, User, Loader } from 'lucide-react'
+import { toast } from 'sonner'
+
+export default function Register() {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [username, setUsername] = useState('')
+  const { register, isLoading } = useAuthStore()
+  const navigate = useNavigate()
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+
+    if (!email || !password || !username) {
+      toast.error('Please fill in all fields')
+      return
+    }
+
+    if (password.length < 6) {
+      toast.error('Password must be at least 6 characters')
+      return
+    }
+
+    const success = await register(email, password, username)
+    if (success) {
+      toast.success('Account created successfully!')
+      navigate('/dashboard')
+    } else {
+      toast.error('Registration failed. Email might already exist.')
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-darker via-dark to-darker flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <Link to="/" className="inline-flex items-center gap-2 mb-6">
+            <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold">N</span>
+            </div>
+            <span className="text-2xl font-bold text-white">Nexus Finance</span>
+          </Link>
+          <h1 className="text-3xl font-bold text-white mb-2">Create Account</h1>
+          <p className="text-slate-400">Start trading crypto today</p>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="bg-dark border border-slate-700 rounded-lg p-8 space-y-6">
+          {/* Username */}
+          <div>
+            <label className="block text-sm font-semibold text-white mb-2">Username</label>
+            <div className="relative">
+              <User className="absolute left-3 top-3 text-slate-400" size={20} />
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="tradername"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-10 pr-4 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-primary transition-colors"
+              />
+            </div>
+          </div>
+
+          {/* Email */}
+          <div>
+            <label className="block text-sm font-semibold text-white mb-2">Email</label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-3 text-slate-400" size={20} />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="your@email.com"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-10 pr-4 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-primary transition-colors"
+              />
+            </div>
+          </div>
+
+          {/* Password */}
+          <div>
+            <label className="block text-sm font-semibold text-white mb-2">Password</label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-3 text-slate-400" size={20} />
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-10 pr-4 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-primary transition-colors"
+              />
+            </div>
+            <p className="text-xs text-slate-400 mt-1">Minimum 6 characters</p>
+          </div>
+
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full bg-primary hover:bg-primary/90 disabled:bg-primary/50 text-white py-2 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+          >
+            {isLoading && <Loader size={18} className="animate-spin" />}
+            {isLoading ? 'Creating Account...' : 'Create Account'}
+          </button>
+
+          {/* Divider */}
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-700"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-dark text-slate-400">Or</span>
+            </div>
+          </div>
+
+          {/* Login Link */}
+          <p className="text-center text-slate-400">
+            Already have an account?{' '}
+            <Link to="/login" className="text-primary hover:underline font-semibold">
+              Login here
+            </Link>
+          </p>
+
+          {/* Terms */}
+          <p className="text-xs text-slate-500 text-center">
+            By creating an account, you agree to our Terms of Service
+          </p>
+        </form>
+      </div>
+    </div>
+  )
+}

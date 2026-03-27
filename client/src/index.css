@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary: #6366F1;
+  --success: #22C55E;
+  --danger: #EF4444;
+  --warning: #F59E0B;
+  --dark: #0F172A;
+  --darker: #020617;
+}
+
+* {
+  @apply transition-colors duration-200;
+}
+
+body {
+  @apply bg-darker text-white;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
