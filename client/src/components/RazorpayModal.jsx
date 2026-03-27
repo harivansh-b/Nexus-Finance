@@ -2,15 +2,18 @@ import { useState } from 'react'
 import { X, Loader, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import apiClient from '../services/api'
+import { loadRazorpayScript } from '../services/razorpay'
+import { useAuthStore } from '../stores/authStore'
 
 export default function RazorpayModal({ isOpen, onClose, onSuccess }) {
   const [amount, setAmount] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const { user, fetchCurrentUser } = useAuthStore()
 
   const handlePayment = async () => {
     if (!amount || parseFloat(amount) < 1) {
-      setError('Amount must be at least ₹1')
+      setError('Amount must be at least Rs 1')
       return
     }
 
@@ -18,32 +21,35 @@ export default function RazorpayModal({ isOpen, onClose, onSuccess }) {
     setError('')
 
     try {
-      // Step 1: Create Razorpay order
       const orderResponse = await apiClient.post('/razorpay/create-order', {
         amount: parseFloat(amount),
       })
 
-      const { orderId, key } = orderResponse.data
+      const { orderId, key, currency } = orderResponse.data
+      const isLoaded = await loadRazorpayScript()
 
-      // Step 2: Open Razorpay checkout
+      if (!isLoaded || !window.Razorpay) {
+        throw new Error('Razorpay checkout failed to load')
+      }
+
       const options = {
-        key: key,
-        amount: parseFloat(amount) * 100, // Convert to paise
-        currency: 'INR',
+        key,
+        amount: parseFloat(amount) * 100,
+        currency: currency || 'INR',
         name: 'Nexus Finance',
         description: 'Wallet Top-up',
         order_id: orderId,
         handler: async (response) => {
           try {
-            // Step 3: Verify payment on backend
             const verifyResponse = await apiClient.post('/razorpay/verify-payment', {
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
             })
 
-            if (verifyResponse.data.success) {
-              toast.success(`Payment successful! ₹${amount} added to your account.`)
+            if (verifyResponse.success) {
+              await fetchCurrentUser()
+              toast.success(`Payment successful! Rs ${amount} added to your account.`)
               setAmount('')
               onClose()
               if (onSuccess) onSuccess(verifyResponse.data)
@@ -54,8 +60,8 @@ export default function RazorpayModal({ isOpen, onClose, onSuccess }) {
           }
         },
         prefill: {
-          name: 'Trader',
-          email: 'trader@nexus-finance.com',
+          name: user?.username || user?.email?.split('@')[0] || 'Trader',
+          email: user?.email || '',
         },
         notes: {
           description: 'Nexus Finance Wallet Top-up',
@@ -63,14 +69,6 @@ export default function RazorpayModal({ isOpen, onClose, onSuccess }) {
         theme: {
           color: '#6366F1',
         },
-      }
-
-      // Load Razorpay script if not already loaded
-      if (!window.Razorpay) {
-        const script = document.createElement('script')
-        script.src = 'https://checkout.razorpay.com/v1/checkout.js'
-        script.async = true
-        document.body.appendChild(script)
       }
 
       const razorpayCheckout = new window.Razorpay(options)
@@ -88,7 +86,6 @@ export default function RazorpayModal({ isOpen, onClose, onSuccess }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-dark border border-slate-700 rounded-lg max-w-md w-full p-8">
-        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold text-white">Add Funds</h2>
           <button
@@ -99,12 +96,10 @@ export default function RazorpayModal({ isOpen, onClose, onSuccess }) {
           </button>
         </div>
 
-        {/* Info */}
         <p className="text-slate-400 mb-6">Enter the amount you want to add to your wallet</p>
 
-        {/* Amount Input */}
         <div className="mb-6">
-          <label className="block text-sm font-semibold text-white mb-2">Amount (₹)</label>
+          <label className="block text-sm font-semibold text-white mb-2">Amount (Rs)</label>
           <input
             type="number"
             value={amount}
@@ -117,10 +112,9 @@ export default function RazorpayModal({ isOpen, onClose, onSuccess }) {
             step="1"
             className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-primary transition-colors"
           />
-          <p className="text-xs text-slate-400 mt-1">Minimum: ₹1</p>
+          <p className="text-xs text-slate-400 mt-1">Minimum: Rs 1</p>
         </div>
 
-        {/* Error Message */}
         {error && (
           <div className="bg-danger/10 border border-danger/30 rounded-lg p-3 mb-6 flex items-center gap-2">
             <AlertCircle size={18} className="text-danger" />
@@ -128,17 +122,15 @@ export default function RazorpayModal({ isOpen, onClose, onSuccess }) {
           </div>
         )}
 
-        {/* Summary */}
         {amount && (
           <div className="bg-slate-800/50 rounded-lg p-4 mb-6">
             <div className="flex justify-between text-sm">
               <span className="text-slate-400">Amount</span>
-              <span className="text-white font-semibold">₹{parseFloat(amount).toFixed(2)}</span>
+              <span className="text-white font-semibold">Rs {parseFloat(amount).toFixed(2)}</span>
             </div>
           </div>
         )}
 
-        {/* Buttons */}
         <div className="space-y-3">
           <button
             onClick={handlePayment}
@@ -156,7 +148,6 @@ export default function RazorpayModal({ isOpen, onClose, onSuccess }) {
           </button>
         </div>
 
-        {/* Footer Note */}
         <p className="text-xs text-slate-500 text-center mt-6">
           Powered by Razorpay. Your payment is secure and encrypted.
         </p>

@@ -4,6 +4,7 @@ package-lock.json
 yarn.lock
 
 # Environment
+src/.env
 .env
 .env.local
 .env.*.local

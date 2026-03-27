@@ -7,6 +7,7 @@ const router = express.Router();
 // Custom Authentication Routes
 router.post('/register', authController.register);
 router.post('/login', authController.login);
+router.post('/clerk-auth', authController.clerkAuth);
 router.post('/logout', verifyToken, authController.logout);
 
 // Clerk Hook (for webhook events)

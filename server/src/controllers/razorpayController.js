@@ -1,22 +1,48 @@
 import Razorpay from 'razorpay';
 import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
-import { successResponse, AppError } from '../utils/helpers.js';
+import { successResponse } from '../utils/helpers.js';
+import { AppError } from '../middleware/errorHandler.js';
 import { Resend } from 'resend';
 import crypto from 'crypto';
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
+let razorpayInstance = null;
+let resendInstance = null;
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const getRazorpayClient = () => {
+  if (razorpayInstance) return razorpayInstance;
+
+  const { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } = process.env;
+
+  if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
+    throw new AppError('Razorpay is not configured on the server', 500);
+  }
+
+  razorpayInstance = new Razorpay({
+    key_id: RAZORPAY_KEY_ID,
+    key_secret: RAZORPAY_KEY_SECRET,
+  });
+
+  return razorpayInstance;
+};
+
+const getResendClient = () => {
+  if (resendInstance) return resendInstance;
+
+  if (!process.env.RESEND_API_KEY) {
+    return null;
+  }
+
+  resendInstance = new Resend(process.env.RESEND_API_KEY);
+  return resendInstance;
+};
 
 // Create Razorpay Order
 export const createRazorpayOrder = async (req, res, next) => {
   try {
     const { amount } = req.body;
     const userId = req.user.userId;
+    const razorpay = getRazorpayClient();
 
     if (!amount || amount < 1) {
       throw new AppError('Amount must be at least 1', 400);
@@ -27,9 +53,8 @@ export const createRazorpayOrder = async (req, res, next) => {
       throw new AppError('User not found', 404);
     }
 
-    // Create Razorpay order
     const order = await razorpay.orders.create({
-      amount: amount * 100, // Razorpay uses paise
+      amount: amount * 100,
       currency: 'INR',
       receipt: `receipt_${userId}_${Date.now()}`,
       notes: {
@@ -61,8 +86,8 @@ export const verifyPayment = async (req, res, next) => {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
     const userId = req.user.userId;
+    const razorpay = getRazorpayClient();
 
-    // Verify signature
     const sign = razorpay_order_id + '|' + razorpay_payment_id;
     const expectedSignature = crypto
       .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
@@ -73,26 +98,23 @@ export const verifyPayment = async (req, res, next) => {
       throw new AppError('Payment verification failed', 400);
     }
 
-    // Get payment details
     const payment = await razorpay.payments.fetch(razorpay_payment_id);
 
     if (payment.status !== 'captured') {
       throw new AppError('Payment not captured', 400);
     }
 
-    const amount = payment.amount / 100; // Convert from paise to rupees
+    const amount = payment.amount / 100;
 
     const user = await User.findById(userId);
     if (!user) {
       throw new AppError('User not found', 404);
     }
 
-    // Update user balance
     const balanceBefore = user.balance;
     user.balance += amount;
     await user.save();
 
-    // Create transaction record
     const transaction = new Transaction({
       userId,
       type: 'DEPOSIT',
@@ -107,21 +129,23 @@ export const verifyPayment = async (req, res, next) => {
     });
     await transaction.save();
 
-    // Send confirmation email
-    await resend.emails.send({
-      from: 'noreply@nexus-finance.com',
-      to: user.email,
-      subject: 'Payment Confirmation - Nexus Finance',
-      html: `
-        <h2>Payment Confirmed ✅</h2>
-        <p>Thank you for your deposit!</p>
-        <p><strong>Amount:</strong> ₹${amount}</p>
-        <p><strong>Payment ID:</strong> ${razorpay_payment_id}</p>
-        <p><strong>New Balance:</strong> ₹${user.balance.toFixed(2)}</p>
-        <p>Your funds are now available for trading immediately.</p>
-        <p><a href="${process.env.CLIENT_URL}/dashboard">Start trading now</a></p>
-      `,
-    });
+    const resend = getResendClient();
+    if (resend) {
+      await resend.emails.send({
+        from: 'noreply@nexus-finance.com',
+        to: user.email,
+        subject: 'Payment Confirmation - Nexus Finance',
+        html: `
+          <h2>Payment Confirmed</h2>
+          <p>Thank you for your deposit!</p>
+          <p><strong>Amount:</strong> Rs ${amount}</p>
+          <p><strong>Payment ID:</strong> ${razorpay_payment_id}</p>
+          <p><strong>New Balance:</strong> Rs ${user.balance.toFixed(2)}</p>
+          <p>Your funds are now available for trading immediately.</p>
+          <p><a href="${process.env.CLIENT_URL}/dashboard">Start trading now</a></p>
+        `,
+      });
+    }
 
     res.json(
       successResponse(

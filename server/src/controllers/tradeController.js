@@ -3,7 +3,8 @@ import Transaction from '../models/Transaction.js';
 import User from '../models/User.js';
 import Order from '../models/Order.js';
 import Watchlist from '../models/Watchlist.js';
-import { successResponse, AppError } from '../utils/helpers.js';
+import { successResponse } from '../utils/helpers.js';
+import { AppError } from '../middleware/errorHandler.js';
 import axios from 'axios';
 
 const COINGECKO_BASE_URL = 'https://api.coingecko.com/api/v3';

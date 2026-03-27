@@ -103,6 +103,56 @@ export const login = async (req, res, next) => {
   }
 };
 
+// Clerk Auth Sync
+export const clerkAuth = async (req, res, next) => {
+  try {
+    const { clerkId, email, username, profileImage } = req.body;
+
+    if (!clerkId || !email) {
+      throw new AppError('Clerk ID and email are required', 400);
+    }
+
+    let user = await User.findOne({
+      $or: [{ clerkId }, { email: email.toLowerCase() }],
+    });
+
+    if (!user) {
+      user = new User({
+        clerkId,
+        email: email.toLowerCase(),
+        username: username || email.split('@')[0],
+        profileImage,
+        authMethod: 'clerk',
+        verified: true,
+      });
+    } else {
+      user.clerkId = clerkId;
+      user.email = email.toLowerCase();
+      user.username = username || user.username || email.split('@')[0];
+      user.profileImage = profileImage || user.profileImage;
+      user.authMethod = 'clerk';
+      user.verified = true;
+    }
+
+    user.lastLogin = new Date();
+    await user.save();
+
+    const token = generateToken(user._id, clerkId);
+
+    res.json(
+      successResponse(
+        {
+          user: user.toJSON(),
+          token,
+        },
+        'Clerk authentication successful'
+      )
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Logout
 export const logout = async (req, res, next) => {
   try {

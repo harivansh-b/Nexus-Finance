@@ -1,15 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useTradeStore } from '../stores/tradeStore'
 import { useAuthStore } from '../stores/authStore'
-import { Search, TrendingUp, TrendingDown, Plus } from 'lucide-react'
+import { Search, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import CryptoCard from '../components/CryptoCard'
 import BuyModal from '../components/BuyModal'
 import RazorpayModal from '../components/RazorpayModal'
 
 export default function Dashboard() {
-  const { cryptoList, fetchCryptoList, selectedCrypto, setSelectedCrypto, searchCrypto } =
-    useTradeStore()
+  const { cryptoList, fetchCryptoList, searchCrypto } = useTradeStore()
   const { user } = useAuthStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [buyModal, setBuyModal] = useState(false)
@@ -18,7 +17,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchCryptoList(50)
-  }, [])
+  }, [fetchCryptoList])
 
   const handleSearch = (e) => {
     const query = e.target.value
@@ -37,13 +36,11 @@ export default function Dashboard() {
 
   return (
     <div>
-      {/* Header */}
       <div className="mb-8">
         <h1 className="text-4xl font-bold text-white mb-2">Dashboard</h1>
         <p className="text-slate-400">Trade cryptocurrencies in real-time</p>
       </div>
 
-      {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-dark border border-slate-700 rounded-lg p-6">
           <p className="text-slate-400 text-sm mb-2">Available Balance</p>
@@ -68,7 +65,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Search */}
       <div className="mb-8">
         <div className="relative">
           <Search className="absolute left-4 top-3 text-slate-400" size={20} />
@@ -82,7 +78,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Crypto List */}
       {cryptoList.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {cryptoList.map((crypto) => (
@@ -90,7 +85,7 @@ export default function Dashboard() {
               key={crypto.id}
               crypto={crypto}
               onBuy={handleBuy}
-              onSellOrAdd={(crypto) => toast.info(`Add ${crypto.name} to watchlist`)}
+              onSellOrAdd={(coin) => toast.info(`Add ${coin.name} to watchlist`)}
             />
           ))}
         </div>
@@ -100,7 +95,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Buy Modal */}
       {buyModal && selectedForBuy && (
         <BuyModal
           crypto={selectedForBuy}
@@ -111,14 +105,11 @@ export default function Dashboard() {
         />
       )}
 
-      {/* Razorpay Modal */}
       <RazorpayModal
         isOpen={razorpayModal}
         onClose={() => setRazorpayModal(false)}
         onSuccess={(data) => {
-          // Refresh user balance
-          fetchCryptoList(50)
-          toast.success(`₹${data.newBalance} added to your account!`)
+          toast.success(`New wallet balance: Rs ${data.newBalance.toFixed(2)}`)
         }}
       />
     </div>

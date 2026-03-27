@@ -1,5 +1,6 @@
 import axios from 'axios';
-import { successResponse, AppError } from '../utils/helpers.js';
+import { successResponse } from '../utils/helpers.js';
+import { AppError } from '../middleware/errorHandler.js';
 
 const COINGECKO_BASE_URL = 'https://api.coingecko.com/api/v3';
 const cache = new Map();

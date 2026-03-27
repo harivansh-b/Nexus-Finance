@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import { SignUpButton } from '@clerk/clerk-react'
 import { useAuthStore } from '../stores/authStore'
 import { Mail, Lock, User, Loader } from 'lucide-react'
 import { toast } from 'sonner'
@@ -8,7 +9,7 @@ export default function Register() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [username, setUsername] = useState('')
-  const { register, isLoading } = useAuthStore()
+  const { register, isLoading, error } = useAuthStore()
   const navigate = useNavigate()
 
   const handleSubmit = async (e) => {
@@ -29,14 +30,13 @@ export default function Register() {
       toast.success('Account created successfully!')
       navigate('/dashboard')
     } else {
-      toast.error('Registration failed. Email might already exist.')
+      toast.error(error || 'Registration failed. Email might already exist.')
     }
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-darker via-dark to-darker flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Header */}
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-2 mb-6">
             <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
@@ -48,9 +48,7 @@ export default function Register() {
           <p className="text-slate-400">Start trading crypto today</p>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="bg-dark border border-slate-700 rounded-lg p-8 space-y-6">
-          {/* Username */}
           <div>
             <label className="block text-sm font-semibold text-white mb-2">Username</label>
             <div className="relative">
@@ -65,7 +63,6 @@ export default function Register() {
             </div>
           </div>
 
-          {/* Email */}
           <div>
             <label className="block text-sm font-semibold text-white mb-2">Email</label>
             <div className="relative">
@@ -80,7 +77,6 @@ export default function Register() {
             </div>
           </div>
 
-          {/* Password */}
           <div>
             <label className="block text-sm font-semibold text-white mb-2">Password</label>
             <div className="relative">
@@ -89,14 +85,13 @@ export default function Register() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder="Create a password"
                 className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-10 pr-4 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-primary transition-colors"
               />
             </div>
             <p className="text-xs text-slate-400 mt-1">Minimum 6 characters</p>
           </div>
 
-          {/* Submit Button */}
           <button
             type="submit"
             disabled={isLoading}
@@ -106,7 +101,15 @@ export default function Register() {
             {isLoading ? 'Creating Account...' : 'Create Account'}
           </button>
 
-          {/* Divider */}
+          <SignUpButton mode="modal">
+            <button
+              type="button"
+              className="w-full border border-slate-600 hover:border-slate-400 text-white py-2 rounded-lg font-semibold transition-colors"
+            >
+              Sign up with Clerk
+            </button>
+          </SignUpButton>
+
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-slate-700"></div>
@@ -116,7 +119,6 @@ export default function Register() {
             </div>
           </div>
 
-          {/* Login Link */}
           <p className="text-center text-slate-400">
             Already have an account?{' '}
             <Link to="/login" className="text-primary hover:underline font-semibold">
@@ -124,7 +126,6 @@ export default function Register() {
             </Link>
           </p>
 
-          {/* Terms */}
           <p className="text-xs text-slate-500 text-center">
             By creating an account, you agree to our Terms of Service
           </p>

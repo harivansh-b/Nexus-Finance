@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useClerk } from '@clerk/clerk-react'
 import { useAuthStore } from '../stores/authStore'
 import { useNavigate } from 'react-router-dom'
 import { Settings as SettingsIcon, Bell, Lock, CreditCard } from 'lucide-react'
@@ -6,12 +7,17 @@ import { toast } from 'sonner'
 import RazorpayModal from '../components/RazorpayModal'
 
 export default function Settings() {
-  const { user, logout } = useAuthStore()
+  const { user, logout, fetchCurrentUser } = useAuthStore()
+  const { signOut } = useClerk()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('general')
   const [razorpayModalOpen, setRazorpayModalOpen] = useState(false)
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (user?.authMethod === 'clerk') {
+      await signOut()
+    }
+
     logout()
     toast.success('Logged out successfully')
     navigate('/login')
@@ -19,13 +25,11 @@ export default function Settings() {
 
   return (
     <div>
-      {/* Header */}
       <div className="mb-8">
         <h1 className="text-4xl font-bold text-white mb-2">Settings</h1>
         <p className="text-slate-400">Manage your account preferences</p>
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-4 mb-8 border-b border-slate-700">
         {[
           { id: 'general', label: 'General', icon: SettingsIcon },
@@ -48,9 +52,7 @@ export default function Settings() {
         ))}
       </div>
 
-      {/* Content */}
       <div className="bg-dark border border-slate-700 rounded-lg p-8">
-        {/* General Settings */}
         {activeTab === 'general' && (
           <div className="space-y-6">
             <h2 className="text-2xl font-bold text-white mb-6">General Settings</h2>
@@ -87,7 +89,6 @@ export default function Settings() {
           </div>
         )}
 
-        {/* Notifications */}
         {activeTab === 'notifications' && (
           <div className="space-y-6">
             <h2 className="text-2xl font-bold text-white mb-6">Notification Preferences</h2>
@@ -111,7 +112,6 @@ export default function Settings() {
           </div>
         )}
 
-        {/* Security */}
         {activeTab === 'security' && (
           <div className="space-y-6">
             <h2 className="text-2xl font-bold text-white mb-6">Security Settings</h2>
@@ -153,7 +153,6 @@ export default function Settings() {
           </div>
         )}
 
-        {/* Billing */}
         {activeTab === 'billing' && (
           <div className="space-y-6">
             <h2 className="text-2xl font-bold text-white mb-6">Billing & Payments</h2>
@@ -175,7 +174,6 @@ export default function Settings() {
           </div>
         )}
 
-        {/* Logout Button */}
         <div className="mt-12 pt-8 border-t border-slate-700">
           <button
             onClick={handleLogout}
@@ -186,12 +184,11 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* Razorpay Modal */}
       <RazorpayModal
         isOpen={razorpayModalOpen}
         onClose={() => setRazorpayModalOpen(false)}
         onSuccess={() => {
-          // Optionally refresh user data here
+          fetchCurrentUser()
         }}
       />
     </div>

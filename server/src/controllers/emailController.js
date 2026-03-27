@@ -1,8 +1,20 @@
 import { Resend } from 'resend';
-import { successResponse, AppError } from '../utils/helpers.js';
+import { successResponse } from '../utils/helpers.js';
+import { AppError } from '../middleware/errorHandler.js';
 import User from '../models/User.js';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+let resendInstance = null;
+
+const getResendClient = () => {
+  if (resendInstance) return resendInstance;
+
+  if (!process.env.RESEND_API_KEY) {
+    throw new AppError('Resend is not configured on the server', 500);
+  }
+
+  resendInstance = new Resend(process.env.RESEND_API_KEY);
+  return resendInstance;
+};
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@nexus-finance.com';
 
@@ -10,6 +22,7 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@nexus-finance.com';
 export const sendWelcomeEmail = async (req, res, next) => {
   try {
     const { email, name } = req.body;
+    const resend = getResendClient();
 
     if (!email) {
       throw new AppError('Email is required', 400);
@@ -18,7 +31,7 @@ export const sendWelcomeEmail = async (req, res, next) => {
     await resend.emails.send({
       from: 'welcome@nexus-finance.com',
       to: email,
-      subject: 'Welcome to Nexus Finance! 🚀',
+      subject: 'Welcome to Nexus Finance!',
       html: `
         <h2>Welcome to Nexus Finance, ${name || 'Trader'}!</h2>
         <p>We're excited to have you on board.</p>
@@ -47,16 +60,15 @@ export const sendTransactionEmail = async (req, res, next) => {
   try {
     const { transactionId } = req.body;
     const userId = req.user.userId;
+    const resend = getResendClient();
 
     const user = await User.findById(userId);
     if (!user) {
       throw new AppError('User not found', 404);
     }
 
-    // In production, fetch actual transaction details from DB
     const { type, coin, amount, price, totalValue, createdAt } = req.body;
-
-    const subject = `${type === 'BUY' ? '📈 Buy' : '📉 Sell'} Confirmation - ${coin?.symbol}`;
+    const subject = `${type === 'BUY' ? 'Buy' : 'Sell'} Confirmation - ${coin?.symbol}`;
 
     await resend.emails.send({
       from: 'trades@nexus-finance.com',
@@ -104,6 +116,7 @@ export const sendPaymentConfirmation = async (req, res, next) => {
   try {
     const { amount } = req.body;
     const userId = req.user.userId;
+    const resend = getResendClient();
 
     const user = await User.findById(userId);
     if (!user) {
@@ -115,7 +128,7 @@ export const sendPaymentConfirmation = async (req, res, next) => {
       to: user.email,
       subject: `Payment Confirmed - $${amount}`,
       html: `
-        <h2>Payment Confirmed ✅</h2>
+        <h2>Payment Confirmed</h2>
         <p>Thank you for your deposit!</p>
         <p><strong>Amount Deposited:</strong> $${amount}</p>
         <p><strong>New Balance:</strong> $${user.balance.toFixed(2)}</p>
@@ -136,6 +149,7 @@ export const sendPaymentConfirmation = async (req, res, next) => {
 export const sendLoginAlert = async (req, res, next) => {
   try {
     const { email, ipAddress, device } = req.body;
+    const resend = getResendClient();
 
     if (!email) {
       throw new AppError('Email is required', 400);
@@ -146,7 +160,7 @@ export const sendLoginAlert = async (req, res, next) => {
       to: email,
       subject: 'Login Alert - New Device Access',
       html: `
-        <h2>New Login Detected 🔒</h2>
+        <h2>New Login Detected</h2>
         <p>We detected a new login to your Nexus Finance account.</p>
         <p><strong>Details:</strong></p>
         <ul>
