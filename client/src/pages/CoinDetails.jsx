@@ -122,7 +122,7 @@ export default function CoinDetails() {
           onClick={() => setBuyModalOpen(true)}
           className="inline-flex items-center gap-2 rounded-2xl bg-primary px-8 py-4 font-black text-white hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-95"
         >
-          ACQUIRE {details.symbol.toUpperCase()}
+          ACQUIRE {details.symbol?.toUpperCase() || 'ASSET'}
           <Zap size={18} />
         </button>
       </motion.div>

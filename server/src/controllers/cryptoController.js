@@ -49,7 +49,7 @@ export const getCryptoList = async (req, res, next) => {
 
     const formatted = data.map((coin) => ({
       id: coin.id,
-      symbol: coin.symbol.toUpperCase(),
+      symbol: coin.symbol?.toUpperCase(),
       name: coin.name,
       image: coin.image,
       currentPrice: coin.current_price,
@@ -86,7 +86,7 @@ export const getCryptoDetails = async (req, res, next) => {
 
     const formatted = {
       id: data.id,
-      symbol: data.symbol.toUpperCase(),
+      symbol: data.symbol?.toUpperCase(),
       name: data.name,
       image: data.image?.large,
       description: data.description?.en,
@@ -138,7 +138,7 @@ export const searchCrypto = async (req, res, next) => {
 
     const results = filtered.slice(0, 20).map((coin) => ({
       id: coin.id,
-      symbol: coin.symbol.toUpperCase(),
+      symbol: coin.symbol?.toUpperCase(),
       name: coin.name,
       image: coin.image,
       currentPrice: coin.current_price,

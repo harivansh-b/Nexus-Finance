@@ -27,15 +27,13 @@ export default function RazorpayModal({ isOpen, onClose, onSuccess }) {
         amount: parseFloat(amount),
       })
 
-      const responseData = response.data
-
-      if (!responseData?.success) {
+      if (!response?.success) {
         // Correctly handle the error structure from server
-        const errorMsg = responseData?.error?.message || responseData?.message || 'Failed to initialize order'
+        const errorMsg = response?.error?.message || response?.message || 'Failed to initialize order'
         throw new Error(errorMsg)
       }
 
-      const { orderId, key, currency, isMock } = responseData.data
+      const { orderId, key, currency, isMock } = response.data
       
       // SIMULATION MODE
       if (isMock) {
