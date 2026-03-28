@@ -12,6 +12,7 @@ import watchlistRoutes from './routes/watchlist.js';
 import tradeRoutes from './routes/trade.js';
 import razorpayRoutes from './routes/razorpay.js';
 import emailRoutes from './routes/email.js';
+import chatRoutes from './routes/chat.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -43,6 +44,7 @@ app.use('/api/trade', tradeRoutes);
 app.use('/api/razorpay', razorpayRoutes);
 app.use('/api/email', emailRoutes);
 app.use('/api/watchlist', watchlistRoutes);  
+app.use('/api/chat', chatRoutes);
 
 // Health Check
 app.get('/api/health', (req, res) => {

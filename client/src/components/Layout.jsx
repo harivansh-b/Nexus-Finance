@@ -4,6 +4,7 @@ import { useAuthStore } from '../stores/authStore'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Menu, X, LogOut, Home, TrendingUp, History, Settings as SettingsIcon, Bell, ChevronRight, Heart } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import ChatBot from './ChatBot'
 
 export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -170,6 +171,7 @@ export default function Layout({ children }) {
             </motion.div>
           </AnimatePresence>
         </main>
+        <ChatBot />
       </div>
 
       {/* Mobile Overlay */}

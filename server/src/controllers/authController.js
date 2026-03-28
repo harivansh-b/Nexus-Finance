@@ -1,14 +1,27 @@
 import User from '../models/User.js';
-import { generateToken, isValidEmail, successResponse, errorResponse } from '../utils/helpers.js';
-import { AppError } from '../middleware/errorHandler.js';
 import Transaction from '../models/Transaction.js';
 
-// Register (Custom Auth)
+import {
+  generateToken,
+  isValidEmail,
+  successResponse
+} from '../utils/helpers.js';
+
+import { AppError } from '../middleware/errorHandler.js';
+
+// ✅ EMAILS
+import {
+  sendWelcomeEmail,
+  sendLoginAlert
+} from './emailController.js';
+
+// -------------------------------
+// REGISTER (CUSTOM AUTH)
+// -------------------------------
 export const register = async (req, res, next) => {
   try {
     const { email, password, username } = req.body;
 
-    // Validation
     if (!email || !password) {
       throw new AppError('Email and password are required', 400);
     }
@@ -21,13 +34,11 @@ export const register = async (req, res, next) => {
       throw new AppError('Password must be at least 6 characters', 400);
     }
 
-    // Check if user exists
     const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
-      throw new AppError('User already exists with this email', 409);
+      throw new AppError('User already exists', 409);
     }
 
-    // Create new user
     const user = new User({
       email: email.toLowerCase(),
       password,
@@ -38,15 +49,16 @@ export const register = async (req, res, next) => {
 
     await user.save();
 
-    // Generate token
+    // ✅ Welcome Email
+    sendWelcomeEmail(user).catch(err =>
+      console.error('Welcome email failed:', err)
+    );
+
     const token = generateToken(user._id);
 
     res.status(201).json(
       successResponse(
-        {
-          user: user.toJSON(),
-          token,
-        },
+        { user: user.toJSON(), token },
         'User registered successfully',
         201
       )
@@ -56,25 +68,24 @@ export const register = async (req, res, next) => {
   }
 };
 
-// Login (Custom Auth)
+// -------------------------------
+// LOGIN (CUSTOM AUTH)
+// -------------------------------
 export const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
-    // Validation
     if (!email || !password) {
       throw new AppError('Email and password are required', 400);
     }
 
-    // Find user
     const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
       throw new AppError('Invalid email or password', 401);
     }
 
-    // Check password
     if (!user.password) {
-      throw new AppError('This account uses Clerk authentication', 400);
+      throw new AppError('Use Clerk login for this account', 400);
     }
 
     const isPasswordValid = await user.comparePassword(password);
@@ -82,19 +93,24 @@ export const login = async (req, res, next) => {
       throw new AppError('Invalid email or password', 401);
     }
 
-    // Update last login
+    // ✅ LOGIN ALERT
+    const context = {
+      ipAddress: req.ip || req.headers['x-forwarded-for'] || 'Unknown',
+      device: req.headers['user-agent'] || 'Unknown'
+    };
+
+    sendLoginAlert(user, context).catch(err =>
+      console.error('Login alert failed:', err)
+    );
+
     user.lastLogin = new Date();
     await user.save();
 
-    // Generate token
     const token = generateToken(user._id);
 
     res.json(
       successResponse(
-        {
-          user: user.toJSON(),
-          token,
-        },
+        { user: user.toJSON(), token },
         'Login successful'
       )
     );
@@ -103,7 +119,9 @@ export const login = async (req, res, next) => {
   }
 };
 
-// Clerk Auth Sync
+// -------------------------------
+// CLERK AUTH (REGISTER + LOGIN)
+// -------------------------------
 export const clerkAuth = async (req, res, next) => {
   try {
     const { clerkId, email, username, profileImage } = req.body;
@@ -116,7 +134,14 @@ export const clerkAuth = async (req, res, next) => {
       $or: [{ clerkId }, { email: email.toLowerCase() }],
     });
 
+    let isNewUser = false;
+
+    // -------------------------------
+    // REGISTER (FIRST TIME CLERK)
+    // -------------------------------
     if (!user) {
+      isNewUser = true;
+
       user = new User({
         clerkId,
         email: email.toLowerCase(),
@@ -124,15 +149,41 @@ export const clerkAuth = async (req, res, next) => {
         profileImage,
         authMethod: 'clerk',
         verified: true,
+        balance: 10000,
       });
-    } else {
+
+      await user.save();
+
+      // ✅ Welcome Email
+      sendWelcomeEmail(user).catch(err =>
+        console.error('Clerk welcome email failed:', err)
+      );
+    } 
+    // -------------------------------
+    // LOGIN (EXISTING USER)
+    // -------------------------------
+    else {
       user.clerkId = clerkId;
       user.email = email.toLowerCase();
-      user.username = username || user.username || email.split('@')[0];
+      user.username = username || user.username;
       user.profileImage = profileImage || user.profileImage;
       user.authMethod = 'clerk';
       user.verified = true;
+
+      await user.save();
     }
+
+    // -------------------------------
+    // LOGIN ALERT (FOR BOTH)
+    // -------------------------------
+    const context = {
+      ipAddress: req.ip || req.headers['x-forwarded-for'] || 'Unknown',
+      device: req.headers['user-agent'] || 'Unknown',
+    };
+
+    sendLoginAlert(user, context).catch(err =>
+      console.error('Clerk login alert failed:', err)
+    );
 
     user.lastLogin = new Date();
     await user.save();
@@ -144,8 +195,11 @@ export const clerkAuth = async (req, res, next) => {
         {
           user: user.toJSON(),
           token,
+          isNewUser,
         },
-        'Clerk authentication successful'
+        isNewUser
+          ? 'Clerk registration successful'
+          : 'Clerk login successful'
       )
     );
   } catch (error) {
@@ -153,20 +207,24 @@ export const clerkAuth = async (req, res, next) => {
   }
 };
 
-// Logout
+// -------------------------------
+// LOGOUT
+// -------------------------------
 export const logout = async (req, res, next) => {
   try {
-    // Logout is primarily client-side (token deletion)
     res.json(successResponse(null, 'Logout successful'));
   } catch (error) {
     next(error);
   }
 };
 
-// Get Current User
+// -------------------------------
+// GET CURRENT USER
+// -------------------------------
 export const getCurrentUser = async (req, res, next) => {
   try {
     const user = await User.findById(req.user.userId);
+
     if (!user) {
       throw new AppError('User not found', 404);
     }

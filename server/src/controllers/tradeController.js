@@ -6,6 +6,7 @@ import Watchlist from '../models/Watchlist.js';
 import { successResponse } from '../utils/helpers.js';
 import { AppError } from '../middleware/errorHandler.js';
 import axios from 'axios';
+import { sendTransactionEmail, sendPaymentConfirmation } from './emailController.js';
 
 const COINGECKO_BASE_URL = 'https://api.coingecko.com/api/v3';
 const priceCache = new Map();
@@ -161,6 +162,9 @@ export const buyCrypto = async (req, res, next) => {
     });
     await transaction.save();
 
+    // Send confirmation email
+    sendTransactionEmail(user, transaction).catch(err => console.error('Buy email failed:', err));
+
     res.status(201).json(
       successResponse(
         {
@@ -235,6 +239,9 @@ export const sellCrypto = async (req, res, next) => {
       balanceAfter: user.balance,
     });
     await transaction.save();
+
+    // Send confirmation email
+    sendTransactionEmail(user, transaction).catch(err => console.error('Sell email failed:', err));
 
     res.json(
       successResponse(
@@ -485,6 +492,9 @@ export const addFunds = async (req, res, next) => {
       description: 'Deposit via payment method',
     });
     await transaction.save();
+
+    // Send payment confirmation email
+    sendPaymentConfirmation(user, amount).catch(err => console.error('Deposit email failed:', err));
 
     res.json(
       successResponse(

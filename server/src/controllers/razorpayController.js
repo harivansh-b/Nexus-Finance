@@ -3,12 +3,10 @@ import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
 import { successResponse } from '../utils/helpers.js';
 import { AppError } from '../middleware/errorHandler.js';
-import { Resend } from 'resend';
+import { sendPaymentConfirmation } from './emailController.js';
 import crypto from 'crypto';
 
 let razorpayInstance = null;
-let resendInstance = null;
-const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
 
 const getRazorpayClient = () => {
   const { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } = process.env;
@@ -29,13 +27,6 @@ const getRazorpayClient = () => {
     console.error('Razorpay initialization failed:', err);
     return null;
   }
-};
-
-const getResendClient = () => {
-  if (resendInstance) return resendInstance;
-  if (!process.env.RESEND_API_KEY) return null;
-  resendInstance = new Resend(process.env.RESEND_API_KEY);
-  return resendInstance;
 };
 
 // Create Razorpay Order
@@ -155,6 +146,9 @@ export const verifyPayment = async (req, res, next) => {
     });
     
     await transaction.save();
+
+    // Send payment confirmation email
+    sendPaymentConfirmation(user, amountValue).catch(err => console.error('Payment email failed:', err));
 
     res.json(
       successResponse(
