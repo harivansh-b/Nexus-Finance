@@ -4,6 +4,9 @@ import { verifyToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
+// Get exchange rate (INR to USD)
+router.get('/exchange-rate', razorpayController.getExchangeRateController);
+
 // Create order (authenticated)
 router.post('/create-order', verifyToken, razorpayController.createRazorpayOrder);
 

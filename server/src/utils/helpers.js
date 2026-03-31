@@ -1,3 +1,6 @@
+import axios from 'axios';
+import jwt from 'jsonwebtoken';
+
 // Success Response
 export const successResponse = (data, message = 'Success', statusCode = 200) => {
   return {
@@ -34,8 +37,6 @@ export const isValidEmail = (email) => {
 };
 
 // Generate JWT Token
-import jwt from 'jsonwebtoken';
-
 export const generateToken = (userId, clerkId = null, expiresIn = '7d') => {
   return jwt.sign(
     { userId, clerkId },
@@ -48,6 +49,17 @@ export const generateToken = (userId, clerkId = null, expiresIn = '7d') => {
 export const calculatePercentageChange = (oldValue, newValue) => {
   if (oldValue === 0) return 0;
   return ((newValue - oldValue) / oldValue) * 100;
+};
+
+// Get INR to USD Exchange Rate
+export const getExchangeRate = async () => {
+  try {
+    const response = await axios.get('https://api.exchangerate-api.com/v4/latest/INR');
+    return response.data.rates.USD || 0.012; // Fallback to 0.012 if API fails
+  } catch (error) {
+    console.error('Exchange rate fetch failed:', error);
+    return 0.012; // Standard fallback
+  }
 };
 
 // Format currency

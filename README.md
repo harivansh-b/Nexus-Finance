@@ -5,7 +5,7 @@
 ### Prerequisites
 - Node.js 18+ and npm
 - MongoDB Atlas account
-- Stripe account
+- Razorpay account
 - Resend account
 - Clerk account (optional, for Clerk authentication)
 
@@ -30,8 +30,8 @@ cp .env.example .env
 # Add your configuration to .env:
 # - MONGODB_URI: Your MongoDB connection string
 # - JWT_SECRET: Generate a secret key (min 32 characters)
-# - STRIPE_SECRET_KEY: From your Stripe dashboard
-# - STRIPE_WEBHOOK_SECRET: From Stripe webhooks
+# - RAZORPAY_KEY_ID: From your Razorpay dashboard
+# - RAZORPAY_KEY_SECRET: From your Razorpay dashboard
 # - RESEND_API_KEY: From your Resend account
 # - CLERK_SECRET_KEY: From Clerk dashboard (if using Clerk)
 
@@ -166,6 +166,13 @@ VITE_RAZORPAY_KEY_ID=rzp_test_...
 
 ## Razorpay Integration
 
+### Razorpay Integration & Currency Conversion
+The platform uses Razorpay for capital injection. While Razorpay processes payments in **INR (Indian Rupees)**, the platform's internal economy operates in **USD**.
+
+- **Automatic Conversion:** When a deposit is verified, the system automatically fetches the current INR to USD exchange rate using a live API.
+- **Credit to Terminal:** The converted USD amount is then credited to your account balance.
+- **Transparency:** You can see the live exchange rate and the estimated USD conversion directly in the deposit modal before confirming the transaction.
+
 ### Setup Razorpay Account
 1. Go to https://razorpay.com
 2. Create an account and verify
@@ -236,10 +243,10 @@ vercel
 - Check MongoDB Atlas IP whitelist includes your IP
 - Ensure credentials are correct
 
-### Stripe Webhook Not Firing
-- Verify webhook secret in .env
-- Check Stripe dashboard for failed events
-- Use `stripe listen` locally for testing
+### Razorpay Payment Not Credited
+- Verify key ID and secret in .env
+- Check Razorpay dashboard for captured payments
+- Ensure the exchange rate API is accessible from your server
 
 ### API Calls Failing
 - Check backend is running on port 5000

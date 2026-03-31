@@ -42,7 +42,8 @@ const transactionSchema = new mongoose.Schema(
     balanceBefore: Number,
     balanceAfter: Number,
     description: String,
-    relatedId: mongoose.Schema.Types.ObjectId, // For linking deposits to Stripe payments
+    notes: String,
+    relatedId: mongoose.Schema.Types.ObjectId, // For linking deposits to Razorpay payments
   },
   { timestamps: true }
 );

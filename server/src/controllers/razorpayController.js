@@ -1,7 +1,7 @@
 import Razorpay from 'razorpay';
 import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
-import { successResponse } from '../utils/helpers.js';
+import { successResponse, getExchangeRate } from '../utils/helpers.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { sendPaymentConfirmation } from './emailController.js';
 import crypto from 'crypto';
@@ -29,6 +29,16 @@ const getRazorpayClient = () => {
   }
 };
 
+// Get current exchange rate
+export const getExchangeRateController = async (req, res, next) => {
+  try {
+    const rate = await getExchangeRate();
+    res.json(successResponse({ rate }));
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Create Razorpay Order
 export const createRazorpayOrder = async (req, res, next) => {
   try {
@@ -47,6 +57,7 @@ export const createRazorpayOrder = async (req, res, next) => {
 
     // SIMULATED FLOW
     if (!razorpay) {
+      const exchangeRate = await getExchangeRate();
       return res.status(201).json(
         successResponse(
           {
@@ -55,6 +66,7 @@ export const createRazorpayOrder = async (req, res, next) => {
             currency: 'INR',
             key: 'MOCK_KEY',
             isMock: true,
+            exchangeRate
           },
           'Simulated order created',
           201
@@ -63,6 +75,7 @@ export const createRazorpayOrder = async (req, res, next) => {
     }
 
     // REAL RAZORPAY FLOW
+    const exchangeRate = await getExchangeRate();
     // Note: Receipt must be less than 40 chars
     const order = await razorpay.orders.create({
       amount: Math.round(parseFloat(amount) * 100),
@@ -81,6 +94,7 @@ export const createRazorpayOrder = async (req, res, next) => {
           currency: order.currency,
           key: process.env.RAZORPAY_KEY_ID,
           isMock: false,
+          exchangeRate
         },
         'Razorpay order created',
         201
@@ -98,6 +112,8 @@ export const verifyPayment = async (req, res, next) => {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, isMock } = req.body;
     const userId = req.user?.userId;
     
+    console.log('Payment Verification Started:', { razorpay_order_id, razorpay_payment_id, isMock, userId });
+
     if (!userId) {
       throw new AppError('Unauthorized: User ID missing', 401);
     }
@@ -106,6 +122,7 @@ export const verifyPayment = async (req, res, next) => {
     let amountValue = 0;
 
     if (isMock || !razorpay) {
+      console.log('Using Mock Verification');
       amountValue = parseFloat(req.body.amount || 0);
     } else {
       // REAL VERIFICATION
@@ -115,13 +132,19 @@ export const verifyPayment = async (req, res, next) => {
         .update(sign.toString())
         .digest('hex');
 
+      console.log('Signature Check:', { expected: expectedSignature, received: razorpay_signature });
+
       if (expectedSignature !== razorpay_signature) {
-        throw new AppError('Payment verification failed', 400);
+        console.error('Signature Mismatch');
+        throw new AppError('Payment verification failed: Signature mismatch', 400);
       }
 
+      console.log('Fetching payment from Razorpay...');
       const payment = await razorpay.payments.fetch(razorpay_payment_id);
-      if (payment.status !== 'captured') {
-        throw new AppError('Payment not captured', 400);
+      console.log('Payment Status:', payment.status);
+
+      if (payment.status !== 'captured' && payment.status !== 'authorized') {
+        throw new AppError(`Payment not captured. Status: ${payment.status}`, 400);
       }
       amountValue = payment.amount / 100;
     }
@@ -129,31 +152,39 @@ export const verifyPayment = async (req, res, next) => {
     const user = await User.findById(userId);
     if (!user) throw new AppError('User not found', 404);
 
+    // Convert INR to USD
+    console.log('Fetching exchange rate...');
+    const exchangeRate = await getExchangeRate();
+    const amountUSD = amountValue * exchangeRate;
+    console.log('Conversion:', { amountValue, exchangeRate, amountUSD });
+
     const balanceBefore = user.balance;
-    user.balance += amountValue;
+    user.balance += amountUSD;
     await user.save();
 
     const transaction = new Transaction({
       userId,
       type: 'DEPOSIT',
-      amount: amountValue,
+      amount: amountUSD,
       price: 1,
-      totalValue: amountValue,
+      totalValue: amountUSD,
       status: 'COMPLETED',
       balanceBefore,
       balanceAfter: user.balance,
-      description: isMock ? `Simulated Deposit` : `Razorpay Deposit`,
+      description: isMock ? `Simulated Deposit ($${amountUSD.toFixed(2)})` : `Razorpay Deposit ($${amountUSD.toFixed(2)})`,
+      notes: `Exchange rate: 1 INR = ${exchangeRate} USD`,
     });
     
     await transaction.save();
 
     // Send payment confirmation email
-    sendPaymentConfirmation(user, amountValue).catch(err => console.error('Payment email failed:', err));
+    sendPaymentConfirmation(user, amountUSD).catch(err => console.error('Payment email failed:', err));
 
     res.json(
       successResponse(
         {
           success: true,
+          amountUSD,
           newBalance: user.balance,
           transaction,
         },

@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { X, Loader, AlertCircle, ShieldCheck, Wallet, Zap } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { X, Loader, AlertCircle, ShieldCheck, Wallet, Zap, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
 import apiClient from '../services/api'
@@ -8,9 +8,32 @@ import { useAuthStore } from '../stores/authStore'
 
 export default function RazorpayModal({ isOpen, onClose, onSuccess }) {
   const [amount, setAmount] = useState('')
+  const [exchangeRate, setExchangeRate] = useState(null)
+  const [isFetchingRate, setIsFetchingRate] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const { user, fetchCurrentUser } = useAuthStore()
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchExchangeRate()
+    }
+  }, [isOpen])
+
+  const fetchExchangeRate = async () => {
+    setIsFetchingRate(true)
+    try {
+      const response = await apiClient.get('/razorpay/exchange-rate')
+      if (response.success) {
+        setExchangeRate(response.data.rate)
+      }
+    } catch (err) {
+      console.error('Failed to fetch rate:', err)
+      setExchangeRate(0.012) // Fallback
+    } finally {
+      setIsFetchingRate(false)
+    }
+  }
 
   const handlePayment = async () => {
     if (!amount || parseFloat(amount) < 1) {
@@ -33,7 +56,8 @@ export default function RazorpayModal({ isOpen, onClose, onSuccess }) {
         throw new Error(errorMsg)
       }
 
-      const { orderId, key, currency, isMock } = response.data
+      const { orderId, key, currency, isMock, exchangeRate: currentRate } = response.data
+      setExchangeRate(currentRate)
       
       // SIMULATION MODE
       if (isMock) {
@@ -49,8 +73,9 @@ export default function RazorpayModal({ isOpen, onClose, onSuccess }) {
         })
 
         if (verifyResponse.data?.success) {
+          const creditedUSD = verifyResponse.data.data.amountUSD || (parseFloat(amount) * currentRate)
           await fetchCurrentUser()
-          toast.success(`Protocol Confirmed (SIMULATED): Rs ${amount} credited.`)
+          toast.success(`Protocol Confirmed: $${creditedUSD.toFixed(2)} credited.`)
           setAmount('')
           onClose()
           if (onSuccess) onSuccess(verifyResponse.data.data)
@@ -83,17 +108,21 @@ export default function RazorpayModal({ isOpen, onClose, onSuccess }) {
               isMock: false
             })
 
-            if (verifyResponse.data?.success) {
+            if (verifyResponse.success || verifyResponse.data?.success) {
+              const data = verifyResponse.data?.data || verifyResponse.data
+              const creditedUSD = data?.amountUSD || (parseFloat(amount) * (exchangeRate || 0.012))
               await fetchCurrentUser()
-              toast.success(`Protocol Confirmed: Rs ${amount} credited to terminal.`)
+              toast.success(`Protocol Confirmed: $${creditedUSD.toFixed(2)} credited to terminal.`)
               setAmount('')
               onClose()
-              if (onSuccess) onSuccess(verifyResponse.data.data)
+              if (onSuccess) onSuccess(data)
             } else {
-              throw new Error('Payment verification protocols failed')
+              const errorMsg = verifyResponse.message || verifyResponse.data?.message || 'Payment verification protocols failed'
+              throw new Error(errorMsg)
             }
           } catch (err) {
-            setError('Verification failure. Terminal sync interrupted.')
+            const errorMsg = err.response?.data?.message || err.message || 'Verification failure. Terminal sync interrupted.'
+            setError(errorMsg)
             console.error('Razorpay Error:', err)
           } finally {
             setIsLoading(false)
@@ -175,7 +204,27 @@ export default function RazorpayModal({ isOpen, onClose, onSuccess }) {
                       className="w-full bg-slate-900/50 border border-slate-800 rounded-2xl pl-12 pr-6 py-5 text-xl font-black text-white placeholder-slate-700 focus:outline-none focus:border-primary transition-all"
                     />
                   </div>
-                  <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest ml-1">Minimum threshold: ₹1.00</p>
+                  <div className="flex justify-between items-center px-1">
+                    <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Minimum threshold: ₹1.00</p>
+                    {amount && exchangeRate && (
+                      <p className="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-1">
+                        ≈ ${(parseFloat(amount) * exchangeRate).toFixed(2)} USD
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
+                   <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                      <span>Live Exchange Rate</span>
+                      <div className="flex items-center gap-2">
+                         {isFetchingRate ? (
+                           <RefreshCw size={10} className="animate-spin text-primary" />
+                         ) : (
+                           <span className="text-white">1 INR = {exchangeRate || '0.012'} USD</span>
+                         )}
+                      </div>
+                   </div>
                 </div>
 
                 <AnimatePresence>
