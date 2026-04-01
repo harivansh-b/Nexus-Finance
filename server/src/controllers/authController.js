@@ -9,7 +9,7 @@ import {
 
 import { AppError } from '../middleware/errorHandler.js';
 
-// ✅ EMAILS
+//  EMAILS
 import {
   sendWelcomeEmail,
   sendLoginAlert
@@ -49,7 +49,7 @@ export const register = async (req, res, next) => {
 
     await user.save();
 
-    // ✅ Welcome Email
+    //  Welcome Email
     sendWelcomeEmail(user).catch(err =>
       console.error('Welcome email failed:', err)
     );
@@ -93,7 +93,7 @@ export const login = async (req, res, next) => {
       throw new AppError('Invalid email or password', 401);
     }
 
-    // ✅ LOGIN ALERT
+    //  LOGIN ALERT
     const context = {
       ipAddress: req.ip || req.headers['x-forwarded-for'] || 'Unknown',
       device: req.headers['user-agent'] || 'Unknown'
@@ -154,7 +154,7 @@ export const clerkAuth = async (req, res, next) => {
 
       await user.save();
 
-      // ✅ Welcome Email
+      //  Welcome Email
       sendWelcomeEmail(user).catch(err =>
         console.error('Clerk welcome email failed:', err)
       );
