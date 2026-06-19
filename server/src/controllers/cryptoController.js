@@ -9,6 +9,106 @@ const MARKET_CACHE_DURATION = 60 * 1000;
 const HISTORY_CACHE_DURATION = 5 * 60 * 1000;
 
 const getUpstreamStatus = (error) => error.response?.status || error.status;
+const isProviderBusy = (error) => error.statusCode === 503 || getUpstreamStatus(error) === 429;
+
+const buildSparkline = (price, changePercent = 0) => {
+  const points = 24;
+  const start = price / (1 + changePercent / 100 || 1);
+
+  return Array.from({ length: points }, (_, index) => {
+    const progress = index / (points - 1);
+    const wave = Math.sin(index * 0.8) * price * 0.004;
+    return Number((start + (price - start) * progress + wave).toFixed(2));
+  });
+};
+
+const fallbackCryptoList = [
+  {
+    id: 'bitcoin',
+    symbol: 'btc',
+    name: 'Bitcoin',
+    image: 'https://assets.coingecko.com/coins/images/1/large/bitcoin.png',
+    current_price: 65000,
+    market_cap: 1280000000000,
+    market_cap_rank: 1,
+    price_change_percentage_24h: 1.8,
+    total_volume: 32000000000,
+  },
+  {
+    id: 'ethereum',
+    symbol: 'eth',
+    name: 'Ethereum',
+    image: 'https://assets.coingecko.com/coins/images/279/large/ethereum.png',
+    current_price: 3500,
+    market_cap: 420000000000,
+    market_cap_rank: 2,
+    price_change_percentage_24h: 1.2,
+    total_volume: 17000000000,
+  },
+  {
+    id: 'tether',
+    symbol: 'usdt',
+    name: 'Tether',
+    image: 'https://assets.coingecko.com/coins/images/325/large/Tether.png',
+    current_price: 1,
+    market_cap: 112000000000,
+    market_cap_rank: 3,
+    price_change_percentage_24h: 0.01,
+    total_volume: 52000000000,
+  },
+  {
+    id: 'binancecoin',
+    symbol: 'bnb',
+    name: 'BNB',
+    image: 'https://assets.coingecko.com/coins/images/825/large/bnb-icon2_2x.png',
+    current_price: 590,
+    market_cap: 91000000000,
+    market_cap_rank: 4,
+    price_change_percentage_24h: 0.7,
+    total_volume: 1700000000,
+  },
+  {
+    id: 'solana',
+    symbol: 'sol',
+    name: 'Solana',
+    image: 'https://assets.coingecko.com/coins/images/4128/large/solana.png',
+    current_price: 145,
+    market_cap: 67000000000,
+    market_cap_rank: 5,
+    price_change_percentage_24h: 2.4,
+    total_volume: 3100000000,
+  },
+  {
+    id: 'ripple',
+    symbol: 'xrp',
+    name: 'XRP',
+    image: 'https://assets.coingecko.com/coins/images/44/large/xrp-symbol-white-128.png',
+    current_price: 0.52,
+    market_cap: 29000000000,
+    market_cap_rank: 6,
+    price_change_percentage_24h: -0.4,
+    total_volume: 1100000000,
+  },
+].map((coin) => ({
+  ...coin,
+  sparkline_in_7d: {
+    price: buildSparkline(coin.current_price, coin.price_change_percentage_24h),
+  },
+}));
+
+const formatCryptoList = (data) =>
+  data.map((coin) => ({
+    id: coin.id,
+    symbol: coin.symbol?.toUpperCase(),
+    name: coin.name,
+    image: coin.image,
+    currentPrice: coin.current_price,
+    marketCap: coin.market_cap,
+    marketCapRank: coin.market_cap_rank,
+    change24h: coin.price_change_percentage_24h,
+    volume24h: coin.total_volume,
+    sparkline: coin.sparkline_in_7d?.price || [],
+  }));
 
 // Get cached data or fetch new
 const getCachedData = async (key, fetcher, cacheDuration = MARKET_CACHE_DURATION) => {
@@ -76,21 +176,15 @@ export const getCryptoList = async (req, res, next) => {
       });
     });
 
-    const formatted = data.map((coin) => ({
-      id: coin.id,
-      symbol: coin.symbol?.toUpperCase(),
-      name: coin.name,
-      image: coin.image,
-      currentPrice: coin.current_price,
-      marketCap: coin.market_cap,
-      marketCapRank: coin.market_cap_rank,
-      change24h: coin.price_change_percentage_24h,
-      volume24h: coin.total_volume,
-      sparkline: coin.sparkline_in_7d?.price || [],
-    }));
+    const formatted = formatCryptoList(data);
 
     res.json(successResponse(formatted, 'Cryptocurrency list fetched'));
   } catch (error) {
+    if (isProviderBusy(error)) {
+      cache.set('crypto_list', { data: fallbackCryptoList, timestamp: Date.now() });
+      return res.json(successResponse(formatCryptoList(fallbackCryptoList), 'Fallback cryptocurrency list fetched'));
+    }
+
     next(error);
   }
 };
