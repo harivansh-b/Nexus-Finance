@@ -1,63 +1,42 @@
-import nodemailer from 'nodemailer';
+import SibApiV3Sdk from 'sib-api-v3-sdk';
 import { AppError } from '../middleware/errorHandler.js';
 
-let transporter = null;
+// ----------------------------------
+// BREVO API CONFIGURATION
+// ----------------------------------
+const client = SibApiV3Sdk.ApiClient.instance;
 
-// -------------------------------
-// SMTP TRANSPORTER
-// -------------------------------
-const getTransporter = () => {
-    if (transporter) return transporter;
+client.authentications['api-key'].apiKey =
+    process.env.BREVO_API_KEY;
 
-    const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_SECURE } = process.env;
+const emailApi = new SibApiV3Sdk.TransactionalEmailsApi();
 
-    if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
-        console.warn('SMTP is not fully configured. Emails will not be sent.');
-        return null;
-    }
-
-    transporter = nodemailer.createTransport({
-        host: SMTP_HOST,
-        port: parseInt(SMTP_PORT) || 587,
-        secure: SMTP_SECURE === 'true',
-        auth: {
-            user: SMTP_USER,
-            pass: SMTP_PASS,
-        },
-    });
-
-    return transporter;
-};
-
-const FROM_EMAIL = process.env.SMTP_FROM || 'no-reply@nexus-finance.com';
-
-// -------------------------------
-// EMAIL UI WRAPPER (🔥 MAIN UPGRADE)
-// -------------------------------
+// ----------------------------------
+// EMAIL UI WRAPPER
+// ----------------------------------
 const emailWrapper = (content) => `
 <div style="margin:0;padding:0;background-color:#f4f6f8;font-family:Arial,sans-serif;">
   <table width="100%" cellspacing="0" cellpadding="0">
     <tr>
       <td align="center">
-        
+
         <table width="600" style="background:#ffffff;border-radius:10px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">
-          
-          <!-- Header -->
+
           <tr>
             <td style="background:linear-gradient(135deg,#0f172a,#1e293b);color:#fff;padding:20px;text-align:center;">
               <h2 style="margin:0;">Nexus Finance</h2>
-              <p style="margin:5px 0 0;font-size:14px;color:#cbd5f5;">Your Gateway to Crypto Trading</p>
+              <p style="margin:5px 0 0;font-size:14px;color:#cbd5f5;">
+                Your Gateway to Crypto Trading
+              </p>
             </td>
           </tr>
 
-          <!-- Body -->
           <tr>
             <td style="padding:30px;">
               ${content}
             </td>
           </tr>
 
-          <!-- Footer -->
           <tr>
             <td style="background:#f1f5f9;text-align:center;padding:15px;font-size:12px;color:#64748b;">
               © ${new Date().getFullYear()} Nexus Finance. All rights reserved.
@@ -72,31 +51,36 @@ const emailWrapper = (content) => `
 </div>
 `;
 
-// -------------------------------
+// ----------------------------------
 // GENERIC EMAIL FUNCTION
-// -------------------------------
+// ----------------------------------
 const sendEmail = async ({ to, subject, html }) => {
-    const mailTransporter = getTransporter();
-    if (!mailTransporter) return;
-
     try {
-        const info = await mailTransporter.sendMail({
-            from: FROM_EMAIL,
-            to,
+        const response = await emailApi.sendTransacEmail({
+            sender: {
+                name: 'Nexus Finance',
+                email: process.env.BREVO_SENDER_EMAIL,
+            },
+            to: [{ email: to }],
             subject,
-            html,
+            htmlContent: html,
         });
 
-        console.log('Message sent:', info.messageId);
-        return info;
+        console.log('Email sent successfully:', response);
+        return response;
     } catch (error) {
-        console.error('Email send failed:', error);
+        console.error('Brevo Email Error:', error);
+
+        throw new AppError(
+            'Failed to send email',
+            500
+        );
     }
 };
 
-// -------------------------------
-// 1. WELCOME EMAIL
-// -------------------------------
+// ----------------------------------
+// WELCOME EMAIL
+// ----------------------------------
 export const sendWelcomeEmail = async (user) => {
     const { email, username, balance } = user;
 
@@ -105,7 +89,10 @@ export const sendWelcomeEmail = async (user) => {
         subject: 'Welcome to Nexus Finance!',
         html: emailWrapper(`
             <h2>Welcome, ${username || 'Trader'} 👋</h2>
-            <p style="color:#475569;">Your account is ready. Start trading instantly.</p>
+
+            <p style="color:#475569;">
+                Your account is ready. Start trading instantly.
+            </p>
 
             <div style="background:#f8fafc;padding:15px;border-radius:8px;margin:20px 0;">
                 <p><strong>Starting Balance:</strong> $${balance?.toLocaleString() || '10,000'}</p>
@@ -123,9 +110,9 @@ export const sendWelcomeEmail = async (user) => {
     });
 };
 
-// -------------------------------
-// 2. TRANSACTION EMAIL
-// -------------------------------
+// ----------------------------------
+// TRANSACTION EMAIL
+// ----------------------------------
 export const sendTransactionEmail = async (user, transaction) => {
     const { type, coin, amount, price, totalValue, createdAt } = transaction;
 
@@ -168,9 +155,9 @@ export const sendTransactionEmail = async (user, transaction) => {
     });
 };
 
-// -------------------------------
-// 3. PAYMENT CONFIRMATION
-// -------------------------------
+// ----------------------------------
+// PAYMENT CONFIRMATION
+// ----------------------------------
 export const sendPaymentConfirmation = async (user, amount) => {
     await sendEmail({
         to: user.email,
@@ -193,9 +180,9 @@ export const sendPaymentConfirmation = async (user, amount) => {
     });
 };
 
-// -------------------------------
-// 4. LOGIN ALERT
-// -------------------------------
+// ----------------------------------
+// LOGIN ALERT
+// ----------------------------------
 export const sendLoginAlert = async (user, context = {}) => {
     const { ipAddress, device } = context;
 
@@ -211,7 +198,9 @@ export const sendLoginAlert = async (user, context = {}) => {
                 <p><strong>Device:</strong> ${device || 'Unknown'}</p>
             </div>
 
-            <p style="color:#475569;">If this wasn't you, secure your account immediately.</p>
+            <p style="color:#475569;">
+                If this wasn't you, secure your account immediately.
+            </p>
 
             <div style="text-align:center;">
                 <a href="${process.env.CLIENT_URL}/security"
@@ -222,3 +211,4 @@ export const sendLoginAlert = async (user, context = {}) => {
         `),
     });
 };
+
