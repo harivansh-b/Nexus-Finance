@@ -8,6 +8,7 @@ import { useAuthStore } from '../stores/authStore'
 import CryptoCard from '../components/CryptoCard'
 import BuyModal from '../components/BuyModal'
 import RazorpayModal from '../components/RazorpayModal'
+import CoinLogo from '../components/CoinLogo'
 import apiClient from '../services/api'
 import { Area, AreaChart, ResponsiveContainer, YAxis } from 'recharts'
 import { formatCompactNumber, formatCurrency } from '../utils/formatting'
@@ -212,9 +213,12 @@ export default function Dashboard() {
               <div className="relative rounded-[40px] border border-white/10 bg-slate-900/60 p-8 md:p-10 backdrop-blur-xl shadow-2xl">
                  <div className="flex items-center justify-between mb-8">
                     <div className="flex items-center gap-4">
-                       {bitcoin?.image ? (
-                        <img src={bitcoin.image} alt="BTC" className="w-16 h-16 rounded-[24px] shadow-2xl shadow-amber-500/20 group-hover:scale-110 transition-transform duration-500" />
-                       ) : <div className="w-16 h-16 bg-amber-500/20 rounded-[24px]" />}
+                       <CoinLogo
+                        src={bitcoin?.image}
+                        symbol={bitcoin?.symbol || 'BTC'}
+                        name={bitcoin?.name || 'Bitcoin'}
+                        className="w-16 h-16 rounded-[24px] shadow-2xl shadow-amber-500/20 group-hover:scale-110 transition-transform duration-500"
+                       />
                        <div>
                           <h3 className="text-2xl font-black text-white tracking-tight">{bitcoin?.name || 'Bitcoin'}</h3>
                           <p className="text-slate-500 font-bold text-[10px] uppercase tracking-[0.3em]">{bitcoin?.symbol || 'BTC'} / USD</p>

@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { Area, AreaChart, ResponsiveContainer, YAxis } from 'recharts'
 import { motion } from 'framer-motion'
 import { formatCompactNumber } from '../utils/formatting.js'
+import CoinLogo from './CoinLogo.jsx'
 
 export default function CryptoCard({ crypto, onBuy, onSellOrAdd, isWatchlisted }) {
   const change24h = crypto.change24h || 0
@@ -25,9 +26,12 @@ export default function CryptoCard({ crypto, onBuy, onSellOrAdd, isWatchlisted }
         <div className="flex items-start justify-between mb-6">
           <div className="flex items-center gap-4">
             <div className="relative">
-               {crypto.image && (
-                <img src={crypto.image} alt={crypto.name} className="w-14 h-14 rounded-2xl shadow-xl transition-transform duration-500 group-hover:scale-110" />
-               )}
+               <CoinLogo
+                src={crypto.image}
+                symbol={crypto.symbol}
+                name={crypto.name}
+                className="w-14 h-14 rounded-2xl shadow-xl transition-transform duration-500 group-hover:scale-110"
+               />
                <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-slate-900 ${isPositive ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`} />
             </div>
             <div>

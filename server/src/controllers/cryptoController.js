@@ -88,7 +88,7 @@ const fallbackCryptoList = fallbackCryptoSeed.map(([id, symbol, name, price, mar
   id,
   symbol,
   name,
-  image: fallbackCryptoImages[id] || `https://static.coincap.io/assets/icons/${symbol}@2x.png`,
+  image: fallbackCryptoImages[id] || null,
   current_price: price,
   market_cap: marketCap,
   market_cap_rank: index + 1,
