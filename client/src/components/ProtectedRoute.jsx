@@ -3,7 +3,7 @@ import { useAuth } from '@clerk/clerk-react'
 import { useAuthStore } from '../stores/authStore'
 import Layout from './Layout'
 
-export default function ProtectedRoute() {
+function ClerkProtectedRoute() {
   const { isAuthenticated } = useAuthStore()
   const { isLoaded, isSignedIn } = useAuth()
 
@@ -28,4 +28,24 @@ export default function ProtectedRoute() {
       <Outlet />
     </Layout>
   )
+}
+
+function BasicProtectedRoute() {
+  const { isAuthenticated } = useAuthStore()
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />
+  }
+
+  return (
+    <Layout>
+      <Outlet />
+    </Layout>
+  )
+}
+
+export default function ProtectedRoute() {
+  const clerkEnabled = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY)
+
+  return clerkEnabled ? <ClerkProtectedRoute /> : <BasicProtectedRoute />
 }

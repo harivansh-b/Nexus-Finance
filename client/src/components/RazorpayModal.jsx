@@ -51,7 +51,6 @@ export default function RazorpayModal({ isOpen, onClose, onSuccess }) {
       })
 
       if (!response?.success) {
-        // Correctly handle the error structure from server
         const errorMsg = response?.error?.message || response?.message || 'Failed to initialize order'
         throw new Error(errorMsg)
       }
@@ -72,13 +71,13 @@ export default function RazorpayModal({ isOpen, onClose, onSuccess }) {
           amount: parseFloat(amount)
         })
 
-        if (verifyResponse.data?.success) {
-          const creditedUSD = verifyResponse.data.data.amountUSD || (parseFloat(amount) * currentRate)
+        if (verifyResponse.success) {
+          const creditedUSD = verifyResponse.data.amountUSD || (parseFloat(amount) * currentRate)
           await fetchCurrentUser()
           toast.success(`Protocol Confirmed: $${creditedUSD.toFixed(2)} credited.`)
           setAmount('')
           onClose()
-          if (onSuccess) onSuccess(verifyResponse.data.data)
+          if (onSuccess) onSuccess(verifyResponse.data)
         } else {
           throw new Error('Simulation verification failed')
         }
@@ -108,8 +107,8 @@ export default function RazorpayModal({ isOpen, onClose, onSuccess }) {
               isMock: false
             })
 
-            if (verifyResponse.success || verifyResponse.data?.success) {
-              const data = verifyResponse.data?.data || verifyResponse.data
+            if (verifyResponse.success) {
+              const data = verifyResponse.data
               const creditedUSD = data?.amountUSD || (parseFloat(amount) * (exchangeRate || 0.012))
               await fetchCurrentUser()
               toast.success(`Protocol Confirmed: $${creditedUSD.toFixed(2)} credited to terminal.`)
@@ -117,7 +116,7 @@ export default function RazorpayModal({ isOpen, onClose, onSuccess }) {
               onClose()
               if (onSuccess) onSuccess(data)
             } else {
-              const errorMsg = verifyResponse.message || verifyResponse.data?.message || 'Payment verification protocols failed'
+              const errorMsg = verifyResponse.message || 'Payment verification protocols failed'
               throw new Error(errorMsg)
             }
           } catch (err) {

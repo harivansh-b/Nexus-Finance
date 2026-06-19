@@ -3,13 +3,13 @@ import apiClient from './api'
 // Create Razorpay order
 export const createRazorpayOrder = async (amount) => {
   const response = await apiClient.post('/razorpay/create-order', { amount })
-  return response.data
+  return response
 }
 
 // Verify payment
 export const verifyPayment = async (paymentData) => {
   const response = await apiClient.post('/razorpay/verify-payment', paymentData)
-  return response.data
+  return response
 }
 
 // Get payment history
@@ -17,7 +17,7 @@ export const getPaymentHistory = async (page = 1, limit = 20) => {
   const response = await apiClient.get('/razorpay/payments', {
     params: { page, limit },
   })
-  return response.data
+  return response
 }
 
 // Load Razorpay script

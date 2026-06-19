@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useClerk } from '@clerk/clerk-react'
 import { useAuthStore } from '../stores/authStore'
 import { useNavigate } from 'react-router-dom'
 import { Settings as SettingsIcon, Bell, Lock, CreditCard, Shield, User as UserIcon, LogOut, ChevronRight, ToggleLeft as ToggleIcon } from 'lucide-react'
@@ -22,7 +21,6 @@ const itemVariants = {
 
 export default function Settings() {
   const { user, logout, fetchCurrentUser } = useAuthStore()
-  const { signOut } = useClerk()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('general')
   const [razorpayModalOpen, setRazorpayModalOpen] = useState(false)
@@ -41,8 +39,8 @@ export default function Settings() {
   }
 
   const handleLogout = async () => {
-    if (user?.authMethod === 'clerk') {
-      await signOut()
+    if (user?.authMethod === 'clerk' && window.Clerk?.signOut) {
+      await window.Clerk.signOut()
     }
 
     logout()

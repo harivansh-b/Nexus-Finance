@@ -64,7 +64,7 @@ function ClerkAuthSync() {
   return null
 }
 
-export default function App() {
+export default function App({ clerkEnabled = false }) {
   const { initAuth } = useAuthStore()
 
   useEffect(() => {
@@ -74,11 +74,11 @@ export default function App() {
   return (
     <>
       <BrowserRouter>
-        <ClerkAuthSync />
+        {clerkEnabled && <ClerkAuthSync />}
         <Routes>
           <Route path="/" element={<Landing />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+          <Route path="/login" element={<Login clerkEnabled={clerkEnabled} />} />
+          <Route path="/register" element={<Register clerkEnabled={clerkEnabled} />} />
 
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<Dashboard />} />

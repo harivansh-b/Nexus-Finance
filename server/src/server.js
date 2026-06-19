@@ -14,6 +14,7 @@ import razorpayRoutes from './routes/razorpay.js';
 import emailRoutes from './routes/email.js';
 import chatRoutes from './routes/chat.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { apiLimiter } from './middleware/rateLimiter.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -34,6 +35,7 @@ app.use(cors({
   origin: process.env.CLIENT_URL || 'http://localhost:5173',
   credentials: true,
 }));
+app.use('/api', apiLimiter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

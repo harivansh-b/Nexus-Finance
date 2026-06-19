@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useClerk } from '@clerk/clerk-react'
 import { useAuthStore } from '../stores/authStore'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Menu, X, LogOut, Home, TrendingUp, History, Settings as SettingsIcon, Bell, ChevronRight, Heart } from 'lucide-react'
@@ -9,13 +8,12 @@ import ChatBot from './ChatBot'
 export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { user, logout } = useAuthStore()
-  const { signOut } = useClerk()
   const location = useLocation()
   const navigate = useNavigate()
 
   const handleLogout = async () => {
-    if (user?.authMethod === 'clerk') {
-      await signOut()
+    if (user?.authMethod === 'clerk' && window.Clerk?.signOut) {
+      await window.Clerk.signOut()
     }
 
     logout()

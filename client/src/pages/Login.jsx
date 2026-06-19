@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { motion } from 'framer-motion'
 import icon from '../assets/icon.png'
 
-export default function Login() {
+export default function Login({ clerkEnabled = false }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const { login, isLoading, error } = useAuthStore()
@@ -114,22 +114,26 @@ export default function Login() {
                 )}
               </button>
 
-              <div className="relative py-4 flex items-center justify-center">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-white/5"></div>
-                </div>
-                <span className="relative px-4 text-[10px] font-black text-slate-600 uppercase tracking-[0.4em] bg-transparent">Social Sync</span>
-              </div>
+              {clerkEnabled && (
+                <>
+                  <div className="relative py-4 flex items-center justify-center">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-white/5"></div>
+                    </div>
+                    <span className="relative px-4 text-[10px] font-black text-slate-600 uppercase tracking-[0.4em] bg-transparent">Social Sync</span>
+                  </div>
 
-              <SignInButton mode="modal">
-                <button
-                  type="button"
-                  className="w-full h-16 border border-white/10 hover:border-white/20 bg-white/5 text-white rounded-2xl font-bold tracking-wider hover:bg-white/10 transition-all flex items-center justify-center gap-3"
-                >
-                  <ShieldCheck size={20} className="text-indigo-400" />
-                  Continue with Clerk
-                </button>
-              </SignInButton>
+                  <SignInButton mode="modal">
+                    <button
+                      type="button"
+                      className="w-full h-16 border border-white/10 hover:border-white/20 bg-white/5 text-white rounded-2xl font-bold tracking-wider hover:bg-white/10 transition-all flex items-center justify-center gap-3"
+                    >
+                      <ShieldCheck size={20} className="text-indigo-400" />
+                      Continue with Clerk
+                    </button>
+                  </SignInButton>
+                </>
+              )}
             </div>
 
             <p className="text-center text-slate-500 text-sm font-medium">
