@@ -1,8 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 export default function CoinLogo({ src, symbol, name, className = '' }) {
   const [failed, setFailed] = useState(!src)
   const label = (symbol || name || '?').slice(0, 3).toUpperCase()
+
+  useEffect(() => {
+    setFailed(!src)
+  }, [src])
 
   if (failed) {
     return (

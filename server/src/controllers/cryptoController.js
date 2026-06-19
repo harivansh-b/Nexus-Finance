@@ -115,6 +115,16 @@ const formatCryptoList = (data) =>
     sparkline: coin.sparkline_in_7d?.price || [],
   }));
 
+const filterCryptos = (data, query) => {
+  const normalizedQuery = query.toLowerCase();
+
+  return data.filter(
+    (coin) =>
+      coin.name.toLowerCase().includes(normalizedQuery) ||
+      coin.symbol.toLowerCase().includes(normalizedQuery)
+  );
+};
+
 // Get cached data or fetch new
 const getCachedData = async (key, fetcher, cacheDuration = MARKET_CACHE_DURATION) => {
   const now = Date.now();
@@ -249,25 +259,20 @@ export const searchCrypto = async (req, res, next) => {
         order: 'market_cap_desc',
         per_page: 250,
         page: 1,
+        sparkline: true,
+        price_change_percentage: '24h',
       });
     });
 
-    const filtered = allCryptos.filter(
-      (coin) =>
-        coin.name.toLowerCase().includes(query.toLowerCase()) ||
-        coin.symbol.toLowerCase().includes(query.toLowerCase())
-    );
-
-    const results = filtered.slice(0, 20).map((coin) => ({
-      id: coin.id,
-      symbol: coin.symbol?.toUpperCase(),
-      name: coin.name,
-      image: coin.image,
-      currentPrice: coin.current_price,
-    }));
+    const results = formatCryptoList(filterCryptos(allCryptos, query).slice(0, 20));
 
     res.json(successResponse(results, 'Search results'));
   } catch (error) {
+    if (isProviderBusy(error)) {
+      const results = formatCryptoList(filterCryptos(fallbackCryptoList, req.params.query).slice(0, 20));
+      return res.json(successResponse(results, 'Fallback search results'));
+    }
+
     next(error);
   }
 };
