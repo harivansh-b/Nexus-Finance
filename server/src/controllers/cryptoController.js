@@ -4,25 +4,57 @@ import { AppError } from '../middleware/errorHandler.js';
 
 const COINGECKO_BASE_URL = 'https://api.coingecko.com/api/v3';
 const cache = new Map();
-const CACHE_DURATION = 5000; // 5 seconds
+const pendingRequests = new Map();
+const MARKET_CACHE_DURATION = 60 * 1000;
+const HISTORY_CACHE_DURATION = 5 * 60 * 1000;
+
+const getUpstreamStatus = (error) => error.response?.status || error.status;
 
 // Get cached data or fetch new
-const getCachedData = async (key, fetcher) => {
+const getCachedData = async (key, fetcher, cacheDuration = MARKET_CACHE_DURATION) => {
   const now = Date.now();
   const cached = cache.get(key);
 
-  if (cached && now - cached.timestamp < CACHE_DURATION) {
+  if (cached && now - cached.timestamp < cacheDuration) {
     return cached.data;
   }
 
+  if (pendingRequests.has(key)) {
+    return pendingRequests.get(key);
+  }
+
+  const request = fetcher()
+    .then((data) => {
+      cache.set(key, { data, timestamp: Date.now() });
+      return data;
+    })
+    .catch((error) => {
+      if (cached) {
+        console.warn(`Using stale cache for ${key} due to API error`);
+        return cached.data;
+      }
+
+      if (getUpstreamStatus(error) === 429) {
+        throw new AppError('Market data provider is busy. Please try again shortly.', 503);
+      }
+
+      throw error;
+    })
+    .finally(() => {
+      pendingRequests.delete(key);
+    });
+
+  pendingRequests.set(key, request);
+  return request;
+};
+
+const fetchCoinGecko = async (path, params) => {
   try {
-    const data = await fetcher();
-    cache.set(key, { data, timestamp: now });
-    return data;
+    const response = await axios.get(`${COINGECKO_BASE_URL}${path}`, { params });
+    return response.data;
   } catch (error) {
-    if (cached) {
-      console.warn(`Using stale cache for ${key} due to API error`);
-      return cached.data;
+    if (getUpstreamStatus(error) === 429) {
+      throw new AppError('Market data provider is busy. Please try again shortly.', 503);
     }
     throw error;
   }
@@ -34,17 +66,14 @@ export const getCryptoList = async (req, res, next) => {
     const { limit = 50, order = 'market_cap_desc' } = req.query;
 
     const data = await getCachedData('crypto_list', async () => {
-      const response = await axios.get(`${COINGECKO_BASE_URL}/coins/markets`, {
-        params: {
-          vs_currency: 'usd',
-          order,
-          per_page: Math.min(limit, 250),
-          page: 1,
-          sparkline: true,
-          price_change_percentage: '24h',
-        },
+      return fetchCoinGecko('/coins/markets', {
+        vs_currency: 'usd',
+        order,
+        per_page: Math.min(limit, 250),
+        page: 1,
+        sparkline: true,
+        price_change_percentage: '24h',
       });
-      return response.data;
     });
 
     const formatted = data.map((coin) => ({
@@ -72,16 +101,13 @@ export const getCryptoDetails = async (req, res, next) => {
     const { coingeckoId } = req.params;
 
     const data = await getCachedData(`crypto_${coingeckoId}`, async () => {
-      const response = await axios.get(`${COINGECKO_BASE_URL}/coins/${coingeckoId}`, {
-        params: {
-          localization: false,
-          tickers: false,
-          market_data: true,
-          community_data: false,
-          developer_data: false,
-        },
+      return fetchCoinGecko(`/coins/${coingeckoId}`, {
+        localization: false,
+        tickers: false,
+        market_data: true,
+        community_data: false,
+        developer_data: false,
       });
-      return response.data;
     });
 
     const formatted = {
@@ -119,15 +145,12 @@ export const searchCrypto = async (req, res, next) => {
     }
 
     const allCryptos = await getCachedData('crypto_search_data', async () => {
-      const response = await axios.get(`${COINGECKO_BASE_URL}/coins/markets`, {
-        params: {
-          vs_currency: 'usd',
-          order: 'market_cap_desc',
-          per_page: 250,
-          page: 1,
-        },
+      return fetchCoinGecko('/coins/markets', {
+        vs_currency: 'usd',
+        order: 'market_cap_desc',
+        per_page: 250,
+        page: 1,
       });
-      return response.data;
     });
 
     const filtered = allCryptos.filter(
@@ -157,18 +180,12 @@ export const getPriceHistory = async (req, res, next) => {
     const { days = 30 } = req.query;
 
     const data = await getCachedData(`crypto_history_${coingeckoId}_${days}`, async () => {
-      const response = await axios.get(
-        `${COINGECKO_BASE_URL}/coins/${coingeckoId}/market_chart`,
-        {
-          params: {
-            vs_currency: 'usd',
-            days,
-            interval: 'daily',
-          },
-        }
-      );
-      return response.data;
-    });
+      return fetchCoinGecko(`/coins/${coingeckoId}/market_chart`, {
+        vs_currency: 'usd',
+        days,
+        interval: 'daily',
+      });
+    }, HISTORY_CACHE_DURATION);
 
     const formatted = data.prices.map(([timestamp, price]) => ({
       date: new Date(timestamp).toISOString().split('T')[0],

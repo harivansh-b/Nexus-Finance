@@ -58,14 +58,6 @@ export default function Dashboard() {
     fetchCryptoList(50)
     fetchPortfolioSummary()
     fetchWatchlist()
-    
-    // Fetch BTC history for the hero chart
-    apiClient.get('/crypto/bitcoin/history?days=7').then(res => {
-      setBtcHistory(res.data)
-    }).catch(err => {
-      console.error('Dashboard: BTC Chart sync failure:', err)
-      toast.error('Market data uplink interrupted')
-    })
   }, [fetchCryptoList, fetchPortfolioSummary, fetchWatchlist])
 
   const handleSearch = (e) => {
@@ -99,6 +91,41 @@ export default function Dashboard() {
     () => cryptoList.find((coin) => coin.id === 'bitcoin') || cryptoList[0],
     [cryptoList]
   )
+
+  useEffect(() => {
+    if (!bitcoin) {
+      return
+    }
+
+    const sparkline = bitcoin?.sparkline || []
+
+    if (sparkline.length > 0) {
+      const now = Date.now()
+      const interval = (7 * 24 * 60 * 60 * 1000) / Math.max(sparkline.length - 1, 1)
+
+      setBtcHistory(
+        sparkline.map((price, index) => ({
+          date: new Date(now - (sparkline.length - 1 - index) * interval).toISOString().split('T')[0],
+          price: Number(price.toFixed(2)),
+        }))
+      )
+      return
+    }
+
+    let isMounted = true
+
+    apiClient.get('/crypto/bitcoin/history?days=7').then(res => {
+      if (isMounted) {
+        setBtcHistory(res.data)
+      }
+    }).catch(err => {
+      console.warn('Dashboard: BTC chart fallback unavailable:', err)
+    })
+
+    return () => {
+      isMounted = false
+    }
+  }, [bitcoin])
 
   return (
     <motion.div 
