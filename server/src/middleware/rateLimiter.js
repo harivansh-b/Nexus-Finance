@@ -2,12 +2,13 @@ import rateLimit from 'express-rate-limit';
 
 const minutes = (value) => value * 60 * 1000;
 
-const createLimiter = ({ windowMinutes, max, message }) =>
+const createLimiter = ({ windowMinutes, max, message, skip }) =>
   rateLimit({
     windowMs: minutes(windowMinutes),
     max,
     standardHeaders: 'draft-8',
     legacyHeaders: false,
+    skip,
     message: {
       error: message,
     },
@@ -16,7 +17,14 @@ const createLimiter = ({ windowMinutes, max, message }) =>
 export const apiLimiter = createLimiter({
   windowMinutes: 15,
   max: Number(process.env.API_RATE_LIMIT_MAX) || 300,
+  skip: (req) => req.path.startsWith('/crypto'),
   message: 'Too many requests. Please try again later.',
+});
+
+export const cryptoLimiter = createLimiter({
+  windowMinutes: 15,
+  max: Number(process.env.CRYPTO_RATE_LIMIT_MAX) || 1000,
+  message: 'Too many crypto data requests. Please try again later.',
 });
 
 export const authLimiter = createLimiter({

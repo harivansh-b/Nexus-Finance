@@ -1,8 +1,11 @@
 import express from 'express';
 import * as cryptoController from '../controllers/cryptoController.js';
 import { optionalAuth } from '../middleware/auth.js';
+import { cryptoLimiter } from '../middleware/rateLimiter.js';
 
 const router = express.Router();
+
+router.use(cryptoLimiter);
 
 // Get top cryptocurrencies
 router.get('/list', cryptoController.getCryptoList);
