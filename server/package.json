@@ -20,6 +20,7 @@
   "author": "Nexus Finance Team",
   "license": "MIT",
   "dependencies": {
+    "@upstash/redis": "^1.38.0",
     "axios": "^1.3.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",

@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import connectDB from './config/database.js';
+import { verifyRedisConnection } from './config/redis.js';
 import authRoutes from './routes/auth.js';
 import cryptoRoutes from './routes/crypto.js';
 import watchlistRoutes from './routes/watchlist.js';
@@ -29,6 +30,7 @@ app.set('trust proxy', 1);
 
 // Connect to Database
 await connectDB();
+await verifyRedisConnection();
 
 // Middleware
 app.use(helmet());

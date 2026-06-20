@@ -1,12 +1,14 @@
 import axios from 'axios';
 import { successResponse } from '../utils/helpers.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { getCache, setCache } from '../utils/cache.js';
 
 const COINGECKO_BASE_URL = 'https://api.coingecko.com/api/v3';
-const cache = new Map();
 const pendingRequests = new Map();
-const MARKET_CACHE_DURATION = 60 * 1000;
-const HISTORY_CACHE_DURATION = 5 * 60 * 1000;
+const MARKET_CACHE_TTL = 60;
+const COIN_DETAILS_CACHE_TTL = 60;
+const TRENDING_CACHE_TTL = 300;
+const HISTORY_CACHE_TTL = 3600;
 
 const getUpstreamStatus = (error) => error.response?.status || error.status;
 const isProviderBusy = (error) => error.statusCode === 503 || getUpstreamStatus(error) === 429;
@@ -125,13 +127,10 @@ const filterCryptos = (data, query) => {
   );
 };
 
-// Get cached data or fetch new
-const getCachedData = async (key, fetcher, cacheDuration = MARKET_CACHE_DURATION) => {
-  const now = Date.now();
-  const cached = cache.get(key);
-
-  if (cached && now - cached.timestamp < cacheDuration) {
-    return cached.data;
+const getCachedData = async (key, fetcher, ttlSeconds) => {
+  const cached = await getCache(key);
+  if (cached) {
+    return cached;
   }
 
   if (pendingRequests.has(key)) {
@@ -139,16 +138,11 @@ const getCachedData = async (key, fetcher, cacheDuration = MARKET_CACHE_DURATION
   }
 
   const request = fetcher()
-    .then((data) => {
-      cache.set(key, { data, timestamp: Date.now() });
+    .then(async (data) => {
+      await setCache(key, data, ttlSeconds);
       return data;
     })
     .catch((error) => {
-      if (cached) {
-        console.warn(`Using stale cache for ${key} due to API error`);
-        return cached.data;
-      }
-
       if (getUpstreamStatus(error) === 429) {
         throw new AppError('Market data provider is busy. Please try again shortly.', 503);
       }
@@ -175,31 +169,64 @@ const fetchCoinGecko = async (path, params) => {
   }
 };
 
+const getMarketData = async (order = 'market_cap_desc') => {
+  const cacheKey = order === 'market_cap_desc' ? 'market-data' : `market-data:${order}`;
+
+  return getCachedData(cacheKey, async () => {
+    return fetchCoinGecko('/coins/markets', {
+      vs_currency: 'usd',
+      order,
+      per_page: 250,
+      page: 1,
+      sparkline: true,
+      price_change_percentage: '24h',
+    });
+  }, MARKET_CACHE_TTL);
+};
+
 // Get top cryptocurrencies
 export const getCryptoList = async (req, res, next) => {
   try {
     const { limit = 50, order = 'market_cap_desc' } = req.query;
 
-    const data = await getCachedData('crypto_list', async () => {
-      return fetchCoinGecko('/coins/markets', {
-        vs_currency: 'usd',
-        order,
-        per_page: Math.min(limit, 250),
-        page: 1,
-        sparkline: true,
-        price_change_percentage: '24h',
-      });
-    });
+    const data = await getMarketData(order);
 
-    const formatted = formatCryptoList(data);
+    const formatted = formatCryptoList(data).slice(0, Math.min(limit, 250));
 
     res.json(successResponse(formatted, 'Cryptocurrency list fetched'));
   } catch (error) {
     if (isProviderBusy(error)) {
-      cache.set('crypto_list', { data: fallbackCryptoList, timestamp: Date.now() });
-      return res.json(successResponse(formatCryptoList(fallbackCryptoList), 'Fallback cryptocurrency list fetched'));
+      const { limit = 50 } = req.query;
+      return res.json(
+        successResponse(
+          formatCryptoList(fallbackCryptoList).slice(0, Math.min(limit, 250)),
+          'Fallback cryptocurrency list fetched'
+        )
+      );
     }
 
+    next(error);
+  }
+};
+
+// Get trending cryptocurrencies
+export const getTrendingCoins = async (req, res, next) => {
+  try {
+    const data = await getCachedData('trending-coins', async () => {
+      return fetchCoinGecko('/search/trending');
+    }, TRENDING_CACHE_TTL);
+
+    const formatted = data.coins.map(({ item }) => ({
+      id: item.id,
+      symbol: item.symbol?.toUpperCase(),
+      name: item.name,
+      image: item.large || item.small || item.thumb,
+      marketCapRank: item.market_cap_rank,
+      score: item.score,
+    }));
+
+    res.json(successResponse(formatted, 'Trending coins fetched'));
+  } catch (error) {
     next(error);
   }
 };
@@ -209,7 +236,7 @@ export const getCryptoDetails = async (req, res, next) => {
   try {
     const { coingeckoId } = req.params;
 
-    const data = await getCachedData(`crypto_${coingeckoId}`, async () => {
+    const data = await getCachedData(`coin:${coingeckoId}`, async () => {
       return fetchCoinGecko(`/coins/${coingeckoId}`, {
         localization: false,
         tickers: false,
@@ -217,7 +244,7 @@ export const getCryptoDetails = async (req, res, next) => {
         community_data: false,
         developer_data: false,
       });
-    });
+    }, COIN_DETAILS_CACHE_TTL);
 
     const formatted = {
       id: data.id,
@@ -253,16 +280,7 @@ export const searchCrypto = async (req, res, next) => {
       return res.json(successResponse([], 'Query too short'));
     }
 
-    const allCryptos = await getCachedData('crypto_search_data', async () => {
-      return fetchCoinGecko('/coins/markets', {
-        vs_currency: 'usd',
-        order: 'market_cap_desc',
-        per_page: 250,
-        page: 1,
-        sparkline: true,
-        price_change_percentage: '24h',
-      });
-    });
+    const allCryptos = await getMarketData();
 
     const results = formatCryptoList(filterCryptos(allCryptos, query).slice(0, 20));
 
@@ -283,13 +301,13 @@ export const getPriceHistory = async (req, res, next) => {
     const { coingeckoId } = req.params;
     const { days = 30 } = req.query;
 
-    const data = await getCachedData(`crypto_history_${coingeckoId}_${days}`, async () => {
+    const data = await getCachedData(`chart:${coingeckoId}:${days}`, async () => {
       return fetchCoinGecko(`/coins/${coingeckoId}/market_chart`, {
         vs_currency: 'usd',
         days,
         interval: 'daily',
       });
-    }, HISTORY_CACHE_DURATION);
+    }, HISTORY_CACHE_TTL);
 
     const formatted = data.prices.map(([timestamp, price]) => ({
       date: new Date(timestamp).toISOString().split('T')[0],
